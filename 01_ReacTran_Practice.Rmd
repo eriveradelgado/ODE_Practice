@@ -316,9 +316,49 @@ M[5, 5] <- 0
 index <- c(2,2,1)
 times <- seq(from = 0, to = 10, by = 0.01)
 out <- radau(y = yini, func = pendulum, parms = NULL, times = times, mass = M, nind = index)
-dim(out)
-```
 
+out %>%
+  as.data.frame() %>%
+  gather(key = "state", value = "value", -time) %>%
+  ggplot(., aes(x = time, y = value))+
+  geom_line()+
+  facet_wrap(~state)
+
+out %>%
+  as.data.frame() %>%
+  gather(key = "state", value = "value", -time) %>%
+  filter(state %in% c("x", "y")) %>%
+  spread(key = state, value = value) %>%
+  ggplot(., aes(x = x, y = y))+
+  geom_line()
+
+```
+The other two following examples explore using ODEs with irrational number inputs and jacobian matrix based functions. 
+
+## Events and roots
+
+```{r}
+eventmod <- function(t, var, parms){
+  list(dvar = -0.1 * var)
+}
+
+yini <- c(v1 = 1, v2 = 2)
+times <- seq(0,10, by = 0.1)
+
+eventdat <- data.frame(var = c("v1", "v2", "v2", "v1"),
+                       time = c(1, 1, 5, 9),
+                       value = c(1, 2, 3, 4),
+                       method = c("add", "mult", "rep", "add")
+                       )
+out <- ode(func = eventmod, 
+           y = yini, 
+           times = times,
+           parms = NULL, 
+           events = list(data = eventdat)
+           )
+
+
+```
 
 
 
