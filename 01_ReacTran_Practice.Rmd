@@ -286,8 +286,39 @@ out %>%
   ggplot(., aes(x = time, y = y, color = state))+
   geom_point(aes(shape = state))+
   theme_bw()+
-  scale_color_brewer(palette = "Paired")
+  scale_color_brewer(palette = "Set1")
 ```
+### DAE of higher index with radau to solve the pendulum equation
+radau solves DAE of the kind of 
+M(y') = F(t, y, y')
+
+x' = u
+y' = v
+u' = -L * x
+v' = -L * y - 9.8
+0  = x^2 + y^2 - 1
+
+x, y, u, v, L are dependant variables
+
+```{r}
+pendulum <- function(t, Y, parms){
+  with(as.list(Y),
+       list(c(u,
+              v,
+              -lam * x,
+              -lam * y - 9.8,
+              x^2 + y^2 - 1))
+       )
+}
+yini <- c(x = 1, y = 0, u = 0, v = 1, lam = 1)
+M <- diag(nrow = 5)
+M[5, 5] <- 0
+index <- c(2,2,1)
+times <- seq(from = 0, to = 10, by = 0.01)
+out <- radau(y = yini, func = pendulum, parms = NULL, times = times, mass = M, nind = index)
+dim(out)
+```
+
 
 
 
