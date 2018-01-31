@@ -220,7 +220,7 @@ as.data.frame(aphid_out) %>%
   gather(key = "aphid", value = "concentration", -time) %>%
   mutate(aphid = str_replace(aphid, pattern = "[A-Z]+",replacement = "") %>% as.numeric) %>%
   ggplot(., aes(x = time, y = aphid)) +
-  geom_raster(aes(fill = concentration), interpolate = T)+
+  geom_raster(aes(fill = concentration), interpolate = F)+
   scale_fill_viridis()+
   theme_minimal()
   
@@ -238,17 +238,17 @@ we use delx.
 
 ## Differential algebraic equations with deSolve
 
-deSolve functions radau and daspk are capable of solving algebraic differential equations in R. The function radau makes use of an implicit runge-kutta solver. The function daspk uses a backward differentiation method. According to Soetaert etal inputs to radau and daspk require particular forms. with radau solving problems up to index 3 and daspk solving problems with index equal to 1 or lower. We'll figure what that means in a minute.
+deSolve functions radau and daspk are capable of solving algebraic differential equations in R. The function radau makes use of an implicit runge-kutta solver. The function daspk uses a backward differentiation method. According to Soetaert etal inputs to radau and daspk require particular forms. Function radau solves problems up to index 3 and daspk solving problems with maximum index of 1. We'll figure what that means in a minute.
 
 radau 
  
-  M (y') = f(t, y , y')
+  M (y') = f(t, y , y') # 
   
 daspk
 
   F(t, y, y') = 0
 
-For dapsk the DAE must be written as something called a residual function rather than the rate equations seen in prior sections for ODEs and PDEs. The example givecn is the following:
+For daspk the DAE must be written as something called a residual function rather than the rate equations seen in prior sections for ODEs and PDEs. The example given is the following:
 
 dy1/dt = - y1 + y2  # (1) Differential equation
 
@@ -273,6 +273,20 @@ daefun <- function(t, y, dy, parameters){
 
 dim(out)
 head(out)
+```
+
+The output given is the value of the state variable 1 and 2 evaluated in the times given by the times vector. In this example the nomenclature of the  state variables (e.g. dy[1], y[1] and y[2]) uses brackets.
+
+### Plotting the DAE solution
+
+```{r}
+out %>%
+  as.data.frame %>%
+  gather(key = "state", value = "y", -time) %>%
+  ggplot(., aes(x = time, y = y, color = state))+
+  geom_point(aes(shape = state))+
+  theme_bw()+
+  scale_color_brewer(palette = "Paired")
 ```
 
 
