@@ -356,7 +356,21 @@ out <- ode(func = eventmod,
            parms = NULL, 
            events = list(data = eventdat)
            )
+out_2 <- ode(func = eventmod, 
+           y = yini, 
+           times = times,
+           parms = NULL
+           )
 
+
+out_2 %>%
+  as.data.frame() %>%
+  gather(key = "state", value = "y", -time) %>%
+  ggplot(., aes(x = time, y = y))+
+  geom_line()+
+  facet_wrap(~state, ncol = 2)
+  
+  
 
 ```
 
@@ -428,8 +442,33 @@ plot(ZincMeuseCovar$fit.FEM)
 ```
 
 ```{r}
-
+ ## Import the mesh of a pawn
+    fpath <- system.file("extdata", "pawn_250.inp", package="meshsimp")
+    mesh <- import.mesh.2.5D(fpath)
+    ## Simplify the mesh down to 200 nodes; assume the components of the
+    ## edge cost functions are equally weighted and that the data locations
+    ## coincide with the vertices of the mesh
+    out1 <- simplify.mesh.2.5D(mesh, 200)
+    ## Resume the simplification procedure, reducing the mesh down to 150 nodes
+    out2 <- simplify.mesh.2.5D(out1$mesh, 150, out1$locations)
 
 ```
+
+```{r}
+## Import the mesh of a pawn
+     data(pawn_250)
+    ## Plot the original mesh
+    plot.mesh.2.5D(mesh, main = "Original mesh, 250 nodes")
+    
+```
+```{r}
+## Simplify the mesh down to 200 nodes; assume the components of the
+    ## edge cost functions are equally weighted and that the data locations
+    ## coincide with the vertices of the mesh
+    out <- simplify.mesh.2.5D(mesh, 200)
+    ## Plot the simplified mesh
+    plot.mesh.2.5D(out$mesh, loc = out$locations, main = "Simplified mesh, 200 nodes")
+```
+
 
 # Checking out Triangulate
