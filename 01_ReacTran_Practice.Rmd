@@ -284,7 +284,6 @@ head(out)
 The output given is the value of the state variable 1 and 2 evaluated in the times given by the times vector. In this example the nomenclature of the  state variables (e.g. dy[1], y[1] and y[2]) uses brackets.
 
 ### Plotting the DAE solution
-
 ```{r}
 out %>%
   as.data.frame %>%
@@ -293,7 +292,11 @@ out %>%
   geom_point(aes(shape = state))+
   theme_bw()+
   scale_color_brewer(palette = "Set1")
+ggsave(filename = "04_y-vs-x-DAE.png",path = "./images/", type = "cairo-png")
 ```
+![Figure 4](./images/04_y-vs-x-DAE.png)
+
+
 ### DAE of higher index with radau to solve the pendulum equation
 radau solves DAE of the kind of 
 M(y') = F(t, y, y')
