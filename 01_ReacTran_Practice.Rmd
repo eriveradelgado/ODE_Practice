@@ -115,15 +115,20 @@ vignette we will use ggplot. Note:
 
 ```{r}
 library(tidyverse)
+library(Cairo)
 out_frame <- out %>% 
   as.data.frame() %>%  # using as.data.frame() since as_data_frame() keeps the matrix class
   gather(key = "state", value = "output", -time) 
-ggplot(out_frame, aes(x = time, y = output))+
+lorenz_plot <- ggplot(out_frame, aes(x = time, y = output))+
   geom_point(size = 0.25)+
   facet_wrap(~state,nrow = 3)+
   theme_bw()
-  
+
+ggsave(plot = lorenz_plot, filename = "01_State-Variables-vs-Time-Lorenz.png", path = "./images", type = "cairo-png")
 ```
+
+![Figure 1](./images/01_State-Variables-vs-Time-Lorenz.png)
+
 We can see here the behavior of each state variable from the Lorenz equation.
 Another plot that is usually visualized for this equation is the one state
 variable in the x axis and another in the y. We can easily replicate this in 
