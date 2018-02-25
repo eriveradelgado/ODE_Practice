@@ -229,10 +229,10 @@ as.data.frame(aphid_out) %>%
   geom_raster(aes(fill = concentration), interpolate = F)+
   scale_fill_viridis()+
   theme_minimal()
-  
+ggsave(filename = "03_aphid-1d-vs-time.png", path = "./images/", type = "cairo-png")  
 
 ```
-
+![Figure 3](./images/03_aphid-1d-vs-time.png)
 
 After writing this equation I have some doubts.
 
