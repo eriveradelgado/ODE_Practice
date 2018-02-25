@@ -124,7 +124,7 @@ lorenz_plot <- ggplot(out_frame, aes(x = time, y = output))+
   facet_wrap(~state,nrow = 3)+
   theme_bw()
 
-ggsave(plot = lorenz_plot, filename = "01_State-Variables-vs-Time-Lorenz.png", path = "./images", type = "cairo-png")
+# ggsave(plot = lorenz_plot, filename = "01_State-Variables-vs-Time-Lorenz.png", path = "./images", type = "cairo-png")
 ```
 
 ![Figure 1](./images/01_State-Variables-vs-Time-Lorenz.png)
@@ -134,14 +134,18 @@ Another plot that is usually visualized for this equation is the one state
 variable in the x axis and another in the y. We can easily replicate this in 
 ggplot.
 
-```{r}
+```{r echo = F}
 out_frame %>%
   filter(state %in% c("Z","X")) %>%
   spread(key = state, value = output) %>%
   ggplot(., aes(x = X, y = Z))+
   geom_point(size = 0.5)+
   theme_bw()
+
+ggsave(filename = "02_X-vs-Z-Lorenz.png", path = "./images/", type = "cairo-png")
 ```
+![Figure 2](./images/02_X-vs-Z-Lorenz.png)
+
  Voila! We are able to obtain via ggplot the output of the Lorenz differential 
  equation. I should add a description of the purpose of the Lorenz function to 
  highlight the need for ODE modeling. To checkout if there were any problems in 
