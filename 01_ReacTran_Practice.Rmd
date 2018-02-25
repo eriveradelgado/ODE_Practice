@@ -157,17 +157,14 @@ difference between the two.
 
 Steps for ODE
 
-  * Application
-
-  + define state varaibles and initial conditions
-  + define parameters
-  + define function with rate of changes of state variables
-  
-  * Implementation
-
-  + define time step
-  + Call ODE solver
-  + Image the solution
+* Application  
+  + define state varaibles and initial conditions  
+  + define parameters  
+  + define function with rate of changes of state variables  
+* Implementation  
+  + define time step  
+  + Call ODE solver  
+  + Image the solution  
 
 See equations on the book
 dN/dt = dFlux/dx + gN
