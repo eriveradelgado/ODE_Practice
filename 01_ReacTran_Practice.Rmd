@@ -36,11 +36,11 @@ library(deSolve)
 The first example is a Lorenz type of system. Of special interest in the 
 vignette is the discussion of the 6 parts of modeling ODE's with R. These are,
 
-* Model specification
+* Model specification  
   + Parameters and their values
   + State variables and their initial conditions
   + Equations that calculate the rate of change of the state variables
-* Model application
+* Model application  
   + Specify time input
   + Use desolve function to solve ode
   + visualize results
@@ -292,11 +292,11 @@ out %>%
 radau solves DAE of the kind of 
 M(y') = F(t, y, y')
 
-x' = u
-y' = v
-u' = -L * x
-v' = -L * y - 9.8
-0  = x^2 + y^2 - 1
+x' = u  
+y' = v  
+u' = -L * x  
+v' = -L * y - 9.8  
+0  = x^2 + y^2 - 1  
 
 x, y, u, v, L are dependant variables
 
