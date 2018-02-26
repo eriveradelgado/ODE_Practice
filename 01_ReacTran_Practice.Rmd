@@ -113,7 +113,7 @@ via the y input in the ode call.
 The final step is visualizing the solution. Instead of using plot as in the 
 vignette we will use ggplot. Note: 
 
-```{r}
+```{r eval = F}
 library(tidyverse)
 library(Cairo)
 out_frame <- out %>% 
@@ -134,7 +134,7 @@ Another plot that is usually visualized for this equation is the one state
 variable in the x axis and another in the y. We can easily replicate this in 
 ggplot.
 
-```{r echo = F}
+```{r eval = F}
 out_frame %>%
   filter(state %in% c("Z","X")) %>%
   spread(key = state, value = output) %>%
@@ -190,7 +190,7 @@ Solution: Write as system of two equations and discretize the lower level?
 These equations are then discretized in the spatial domain. In particular the
 first equation is discretized using a centered difference and the second 
 equation uses a lagging difference?
-```{r}
+```{r eval = F}
 Aphid <- function(t, APHIDS, parameters){
 deltax <- c(0.5, rep(1, numboxes - 1), 0.5) # Must match length, but why 0.5? 61 spaces for deltax
 Flux <- - D * diff(c(0 ,APHIDS, 0))/ deltax # Must match length, but why 0? Because there's nothing at the edges as a boundary condition. 62 spaces for the numerator. Diff reduces length of vector by 1.
@@ -284,7 +284,7 @@ head(out)
 The output given is the value of the state variable 1 and 2 evaluated in the times given by the times vector. In this example the nomenclature of the  state variables (e.g. dy[1], y[1] and y[2]) uses brackets.
 
 ### Plotting the DAE solution
-```{r}
+```{r eval = F}
 out %>%
   as.data.frame %>%
   gather(key = "state", value = "y", -time) %>%
@@ -309,7 +309,7 @@ v' = -L * y - 9.8
 
 x, y, u, v, L are dependant variables
 
-```{r}
+```{r eval = F}
 pendulum <- function(t, Y, parms){
   with(as.list(Y),
        list(c(u,
@@ -326,22 +326,34 @@ index <- c(2,2,1)
 times <- seq(from = 0, to = 10, by = 0.01)
 out <- radau(y = yini, func = pendulum, parms = NULL, times = times, mass = M, nind = index)
 
+```
+
+
+```{r eval = F}
 out %>%
   as.data.frame() %>%
   gather(key = "state", value = "value", -time) %>%
   ggplot(., aes(x = time, y = value))+
   geom_line()+
-  facet_wrap(~state)
+  facet_wrap(~state)+
+  theme_bw()
+ggsave(filename = "05_var-vs-time.png", path = "./images/", type = "cairo-png")
+```
+![Figure 5a](./images/05_var-vs-time.png)
 
+```{r eval = F}
 out %>%
   as.data.frame() %>%
   gather(key = "state", value = "value", -time) %>%
   filter(state %in% c("x", "y")) %>%
   spread(key = state, value = value) %>%
   ggplot(., aes(x = x, y = y))+
-  geom_line()
-
+  geom_line()+
+  theme_bw()
+ggsave(filename = "06_y-vs-x.png", path = "./images/", type = "cairo-png")
 ```
+![Figure 5b](./images/06_y-vs-x.png)
+
 The other two following examples explore using ODEs with irrational number inputs and jacobian matrix based functions. 
 
 ## Events and roots
