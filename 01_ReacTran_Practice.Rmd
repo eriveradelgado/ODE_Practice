@@ -2,15 +2,20 @@
 title: "Solving PDEs in R for Drug Delivery Applications"
 author: "Edgardo Rivera-Delgado"
 date: "January 18, 2018"
-output: html_notebook
+output:
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+csl: biomaterials.csl
+bibliography: QSPR.bib
 ---
 
 
 # Goal
 
 In this post we will practice a few examples from Karline Soateart package 
-*ReacTran*. My goal by practicing how to solve PDEs and ODEs is to simulate drug 
-delivery from our affinity polymers. Our model should incorporate the affinity 
+*ReacTran*. [@Soetaert:2017wu] My goal by practicing how to solve PDEs and ODEs 
+is to simulate drug delivery from our affinity polymers. Our model should incorporate the affinity 
 binding strength K~D~. We can predict K~D~ using Alison Xin's model. If
 we can input the K~D~ onto a PDE model we could simulate the release of any 
 small molecule. Furthermore we could understand for which drugs, or classes of
@@ -43,7 +48,7 @@ vignette is the discussion of the 6 parts of modeling ODE's with R. These are,
 * Model application  
   + Specify time input
   + Use desolve function to solve ode
-  + visualize results
+  + Visualize results
  
 ### Model specification
 
@@ -52,7 +57,7 @@ and initial conditions, and equations that calculate the rate of change of the
 state variables. The equations providing the rate of change of the state 
 variables are given in a function.
 
-```{r}
+```{r eval = F}
 # model parameters
 parameters <- c(a = -8/3,
                 b = -10,
@@ -86,7 +91,7 @@ running from 0 to 100 seconds in 0.01s intervals. The second step is to provide
 the Lorenz function to an ode solver from desolve to obtain the solution to the 
 model. After a solution is found we can proceed to visualize it.
 
-```{r}
+```{r eval = F}
 
 times <- seq(0, 100, by = 0.01)
 
@@ -99,7 +104,7 @@ out <- ode(y = state,
 
 We can then explore the output of the code by using head and dim. 
 
-```{r}
+```{r eval = F}
 head(out)
 dim(out)
 ```
@@ -147,60 +152,73 @@ ggsave(filename = "02_X-vs-Z-Lorenz.png", path = "./images/", type = "cairo-png"
 ![Figure 2](./images/02_X-vs-Z-Lorenz.png)
 
  Voila! We are able to obtain via ggplot the output of the Lorenz differential 
- equation. I should add a description of the purpose of the Lorenz function to 
- highlight the need for ODE modeling. To checkout if there were any problems in 
- the call to ode one can use the diagnostics function from desolve
+ equation.  
  
-### Some thoughts on the ode function
+ I should add a description of the purpose of the Lorenz function to 
+ highlight the need for ODE modeling.
+ 
+ To checkout if there were any problems in 
+ the call to ode one can use the diagnostics function from desolve
 
-The ode() function takes the following arguments
-   y  
-   times  
-   func  
-   parms  
-   method  
-   x  
-   object
-   which  
-   select  
-   subset  
-   ...
-   
-   example
-   notes
-   
-```{r}
+```{r echo = F, eval = F}
 diagnostics(out)
 ```
+
+
+### Some thoughts on the ode function
+
+The ode() function takes the following arguments  
+
+|ode|ode.1D|radau|
+|---|------|-----|
+|y|try|  
+|times|test|  
+|func| test| 
+|parms|  test|
+|method|  test|
+|x|  test|
+|object|test|
+|which|  test|
+|select|  test|
+||  test|
+|$\ldots$|test|
+|example|test|
+|notes|test|
+   
+
 ## Solving PDEs with desolve
 Partial differential equations are diferential equations that include a state 
 variable that like ODEs changes in time but also describes changes in space. In
 the vignette for deSolve PDEs are discussed in the example of a  pest spreading 
 along a line of trees in 1D.
 
-Before we discuss PDEs let's quickly review ODEs so that we can compare the 
-difference between the two.
-
-Steps for ODE
-
-* Application  
-  + define state varaibles and initial conditions  
-  + define parameters  
-  + define function with rate of changes of state variables  
-* Implementation  
-  + define time step  
-  + Call ODE solver  
-  + Image the solution  
-
-See equations on the book
-dN/dt = dFlux/dx + gN
+The first equation relates the change in aphids with respect to the change in 
+flux in space with a generation term.  
 
 
-Flux = -D dN/dx  *This one is discretized by "hand"*
 
-Analyzing this equation, it seems it really comes from the following equation:
+$$\frac{dN}{dt} = \frac{\partial Flux}{\partial x} + gN$$
 
-dN/dt = -D d2 N/ dx2 + gN
+
+
+
+The second equation describes how the flux is a product of the aphid diffusivity
+and the rate of change of aphid in 1 dimensional space  
+
+$$Flux = -D \frac{\partial N}{\partial x}$$
+
+
+Analyzing this equation, it seems it really comes from the following equation:  
+
+
+$$ \frac{dN}{dt} = -D \frac{\partial^2 N}{\partial x^2} + gN$$
+with state variables:
+N which is the number of aphids 
+x which is the spatial dimension in $\textit m$
+
+with parameters:  
+D which is the diffusivity of Aphids in $\frac{m^2}{day}$  
+g rate of generation parameter in $\frac{aphids}{day}$
 
 Solution: Write as system of two equations and discretize the lower level?
 
@@ -208,6 +226,8 @@ These equations are then discretized in the spatial domain. In particular the
 first equation is discretized using a centered difference and the second 
 equation uses a lagging difference?
 ```{r eval = F}
+
+# ODE Function
 Aphid <- function(t, APHIDS, parameters){
 deltax <- c(0.5, rep(1, numboxes - 1), 0.5) # Must match length, but why 0.5? 61 spaces for deltax
 Flux <- - D * diff(c(0 ,APHIDS, 0))/ deltax # Must match length, but why 0? Because there's nothing at the edges as a boundary condition. 62 spaces for the numerator. Diff reduces length of vector by 1.
@@ -215,15 +235,18 @@ dAPHIDS <- -diff(Flux)/delx + r * APHIDS
 
 list(dAPHIDS)
 }
+
 # Parameters
 D <- 0.3 # m2/day diffusion rate
 r <- 0.01 # Aphids/day generation rate
 numboxes <- 60 # How big the field is in meters
 delx <- 1 # thicknes of boxes
+
 # Initial Conditions
 APHIDS <- rep(0, times = numboxes) # initializing the 60 boxes with zeros
 APHIDS[30:31] <- 1 # Only aphids at the center
 state <- c(APHIDS = APHIDS) # initialize state variable
+
 # Set time 
 times <- seq(0, 200, by = 1)
 
@@ -237,6 +260,7 @@ aphid_out <- ode.1D(y = state,
 
 # dim(aphid_out) # aphid_out has the dimensions corresponding to 201 rows for time and 61 columns corresponding to the x axis
 
+# Visualization
 library(stringr)
 library(viridis)
 as.data.frame(aphid_out) %>%
@@ -253,11 +277,17 @@ ggsave(filename = "03_aphid-1d-vs-time.png", path = "./images/", type = "cairo-p
 
 After writing this equation I have some doubts.
 
-   1. How does one determines the length and values of the deltax vector? Easy it must be the same length as the numerator after diference is taken. Diff will remove 1 element from your numerator.
-   2. How does one determines to use diff with the vector inside of it the Flux term? Because the equation says so.
-   3. How does one determines to use diff again but this time instead of using deltax? Because the flux is discretized.
-we use delx.
-   4. Why does the author changes notation of the state variable from N to APHIDS? Authors choice.
+   1. How does one determines the length and values of the deltax vector? 
+   Easy it must be the same length as the numerator after diference is taken. Diff will remove 1 element from your numerator.
+   2. How does one determines to use diff with the vector inside of it the Flux
+   term? 
+   Because the equation says so.
+   3. How does one determines to use diff again but this time instead of using
+   deltax? 
+   Because the flux is discretized we use delx.
+   4. Why does the author changes notation of the state variable from N to 
+   APHIDS?
+   Authors choice.
 
 ## Differential algebraic equations with deSolve
 
@@ -265,19 +295,20 @@ deSolve functions radau and daspk are capable of solving algebraic differential 
 
 radau 
  
-  M (y') = f(t, y , y') # 
+ $$M (y') = f(t, y , y') $$
   
 daspk
 
-  F(t, y, y') = 0
+  $$F(t, y, y') = 0$$
 
 For daspk the DAE must be written as something called a residual function rather than the rate equations seen in prior sections for ODEs and PDEs. The example given is the following:
 
-dy1/dt = - y1 + y2  # (1) Differential equation
+$$\frac{dy[1]}{dt} = - y[1] + y[2] $$
 
-y1*y2 = t  # (2) algebraic equation
 
-```{r}
+$$y[1]*y[2] = t $$
+
+```{r eval = F}
 daefun <- function(t, y, dy, parameters){
   res1 <- dy[1] + y[1] - y[2]
   res2 <- y[2] * y[1] - t
@@ -316,13 +347,16 @@ ggsave(filename = "04_y-vs-x-DAE.png",path = "./images/", type = "cairo-png")
 
 ### DAE of higher index with radau to solve the pendulum equation
 radau solves DAE of the kind of 
-M(y') = F(t, y, y')
 
-x' = u  
-y' = v  
-u' = -L * x  
-v' = -L * y - 9.8  
-0  = x^2 + y^2 - 1  
+$$ M(y') = F(t, y, y')$$
+
+$$\begin{align*}
+& x' = u \\
+& y' = v \\ 
+& u' = -L * x \\ 
+& v' = -L * y - 9.8 \\ 
+& 0 = x^2 + y^2 - 1 \\
+\end{align*}$$  
 
 x, y, u, v, L are dependant variables
 
@@ -378,19 +412,24 @@ simulate drug release profiles.
 
 ## Events and roots
 
-```{r}
+```{r eval = F}
 eventmod <- function(t, var, parms){
   list(dvar = -0.1 * var)
 }
-
+# Declare state variables
 yini <- c(v1 = 1, v2 = 2)
+
+# Call time vector
 times <- seq(0,10, by = 0.1)
 
+# Declare when the events will take place
 eventdat <- data.frame(var = c("v1", "v2", "v2", "v1"),
                        time = c(1, 1, 5, 9),
                        value = c(1, 2, 3, 4),
                        method = c("add", "mult", "rep", "add")
                        )
+
+# Call the solver
 out <- ode(func = eventmod, 
            y = yini, 
            times = times,
@@ -404,14 +443,6 @@ out_2 <- ode(func = eventmod,
            parms = NULL
            )
 
-
-out_2 %>%
-  as.data.frame() %>%
-  gather(key = "state", value = "y", -time) %>%
-  ggplot(., aes(x = time, y = y))+
-  geom_line()+
-  facet_wrap(~state, ncol = 2)
-
 out %>% 
   as.data.frame() %>%
   inner_join(as.data.frame(out_2), by = "time") %>%
@@ -420,6 +451,7 @@ out %>%
   geom_line()+
   facet_wrap(~state, ncol = 2)+
   theme_bw()
+ggsave(filename = "07_y-vs-t_event-ode.png", path = "./images/", type = "cairo-png")
   
 
 
@@ -427,105 +459,8 @@ out %>%
   
 
 ```
+![Figure 6](./images/07_y-vs-t_event-ode.png)
 
-
-
-## Checking out fdaPDE
-fdaPDE is the only package on CRAN that can perform FEM analysis. Vulic's paper
-uses FEM to solve the affinity mass balance PDE using COMSOL. COMSOL is
-proprietary and I don't have a copy. The only downside is that fdaPDE doesn't 
-seem to have a vignette to follow along some examples. There's a python project
-called SfePy that looks promising. 
-
-From here on I'm following the package help file from fdaPDE as a workaround.
-```{r}
-library(fdaPDE)
-data(MeuseData)
-mesh <- create.MESH.2D(nodes = MeuseData[,c(2,3)], order =1)
-plot(mesh)
-```
-```{r}
-data("MeuseBorder")
-mesh <- create.MESH.2D(nodes = MeuseData[c(2,3)], segments = MeuseBorder, order = 1)
-plot(mesh)
-```
- 
-```{r}
-mesh <- create.MESH.2D(nodes = rbind(c(0,0), c(0,1), c(0.5, 0.5), c(1,1), c(1,0)), segments = rbind(c(1,2), c(2,3), c(3,4), c(4,5), c(5,1)), order = 1)
-plot(mesh)
-FEMbasis = create.FEM.basis(mesh)
-```
-```{r}
-data("mesh.2D.rectangular")
-plot(mesh.2D.rectangular)
-
-```
-```{r}
-FEMbasis = create.FEM.basis(mesh.2D.rectangular)
-coeff <- sin(mesh.2D.rectangular$nodes[,1])*cos(mesh.2D.rectangular$nodes[,2])
-FEM_object <- FEM(coeff, FEMbasis)
-plot(FEM_object)
-```
-
-```{r}
-data(MeuseData)
-data("MeuseBorder")
-mesh <- create.MESH.2D(nodes = MeuseData[,c(2,3)], segments = MeuseBorder, order = 1)
-mesh_refine <- refine.MESH.2D(mesh, minimum_angle = 30, maximum_area = 10000)
-plot(mesh_refine)
-```
-
-```{r}
-data2 = log(MeuseData[,"zinc"])
-lambda = 10^3.5
-ZincMeuse <-  smooth.FEM.basis(observations = data2,
-                             FEMbasis = FEMbasis,
-                             lambda = lambda)
-plot(ZincMeuse$fit.FEM)
-```
-
-```{r}
-desmat <- matrix(1, nrow = nrow(MeuseData), ncol = 2)
-desmat[,1] = sqrt(MeuseData[, "dist.log(m)"])
-desmat[,2] = MeuseData[,"elev"]
-ZincMeuseCovar = smooth.FEM.basis(observations = data2, 
-                                  covariates = desmat, 
-                                  FEMbasis = FEMbasis,
-                                  lambda = lambda)
-plot(ZincMeuseCovar$fit.FEM)
-```
-
-```{r}
- ## Import the mesh of a pawn
-    fpath <- system.file("extdata", "pawn_250.inp", package="meshsimp")
-    mesh <- import.mesh.2.5D(fpath)
-    ## Simplify the mesh down to 200 nodes; assume the components of the
-    ## edge cost functions are equally weighted and that the data locations
-    ## coincide with the vertices of the mesh
-    out1 <- simplify.mesh.2.5D(mesh, 200)
-    ## Resume the simplification procedure, reducing the mesh down to 150 nodes
-    out2 <- simplify.mesh.2.5D(out1$mesh, 150, out1$locations)
-
-```
-
-```{r}
-## Import the mesh of a pawn
-     data(pawn_250)
-    ## Plot the original mesh
-    plot.mesh.2.5D(mesh, main = "Original mesh, 250 nodes")
-    
-```
-```{r}
-## Simplify the mesh down to 200 nodes; assume the components of the
-    ## edge cost functions are equally weighted and that the data locations
-    ## coincide with the vertices of the mesh
-    out <- simplify.mesh.2.5D(mesh, 200)
-    ## Plot the simplified mesh
-    plot.mesh.2.5D(out$mesh, loc = out$locations, main = "Simplified mesh, 200 nodes")
-```
-
-
-# Checking out Triangulate
 
 
 # Appendix
@@ -533,3 +468,7 @@ plot(ZincMeuseCovar$fit.FEM)
 Item | 
 function|
 parameters|
+
+# References
+
+
