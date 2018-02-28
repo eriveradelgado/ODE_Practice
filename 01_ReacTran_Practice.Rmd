@@ -111,7 +111,7 @@ automatically named by the solver, and the three state variables provided to ode
 via the y input in the ode call. 
 
 The final step is visualizing the solution. Instead of using plot as in the 
-vignette we will use ggplot. Note: 
+vignette we will use ggplot.
 
 ```{r eval = F}
 library(tidyverse)
@@ -151,7 +151,24 @@ ggsave(filename = "02_X-vs-Z-Lorenz.png", path = "./images/", type = "cairo-png"
  highlight the need for ODE modeling. To checkout if there were any problems in 
  the call to ode one can use the diagnostics function from desolve
  
- 
+### Some thoughts on the ode function
+
+The ode() function takes the following arguments
+   y  
+   times  
+   func  
+   parms  
+   method  
+   x  
+   object
+   which  
+   select  
+   subset  
+   ...
+   
+   example
+   notes
+   
 ```{r}
 diagnostics(out)
 ```
@@ -354,7 +371,10 @@ ggsave(filename = "06_y-vs-x.png", path = "./images/", type = "cairo-png")
 ```
 ![Figure 5b](./images/06_y-vs-x.png)
 
-The other two following examples explore using ODEs with irrational number inputs and jacobian matrix based functions. 
+The other two following examples explore using ODEs with irrational number 
+inputs and jacobian matrix based functions. Which we are going to skip for now
+in order to keep making progress towards our goal of using ode and pde in r to
+simulate drug release profiles.
 
 ## Events and roots
 
@@ -377,6 +397,7 @@ out <- ode(func = eventmod,
            parms = NULL, 
            events = list(data = eventdat)
            )
+
 out_2 <- ode(func = eventmod, 
            y = yini, 
            times = times,
@@ -390,6 +411,18 @@ out_2 %>%
   ggplot(., aes(x = time, y = y))+
   geom_line()+
   facet_wrap(~state, ncol = 2)
+
+out %>% 
+  as.data.frame() %>%
+  inner_join(as.data.frame(out_2), by = "time") %>%
+  gather(key = "state", value = "y", -time) %>%
+  ggplot(.,aes(x = time, y = y))+
+  geom_line()+
+  facet_wrap(~state, ncol = 2)+
+  theme_bw()
+  
+
+
   
   
 
@@ -493,3 +526,10 @@ plot(ZincMeuseCovar$fit.FEM)
 
 
 # Checking out Triangulate
+
+
+# Appendix
+
+Item | 
+function|
+parameters|
