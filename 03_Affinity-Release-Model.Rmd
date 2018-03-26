@@ -1,0 +1,211 @@
+---
+title: "Affinity Release Model"
+author: "Edgardo Rivera-Delgado"
+output: html_notebook
+date: 2018-03-01
+bibliography: QSPR.bib
+csl: biomaterials.csl
+---
+
+# Equations for Drug Release
+
+Release from affinity polymer disks can be modeled as described by Andrew Fu. [@Fu:2011cj]. 
+
+
+In the next set of equations the continuous equation will be given followed by the
+discretized version used to solve it with the method of lines. 
+
+The spatial derivative is discretized as given
+
+$$ \Delta = \frac{1}{N}, z_{i} = i\Delta \\
+(i = 0,1,2,...,N)$$
+
+The rate of binding within the hydrogel is given by
+
+$$ R_b = \bigg[\frac{k_1C_0} {k_2}\bigg] C_L\bigg(\bigg[\frac{C_T}{C_0}\bigg]-C_{L-C}\bigg)-C_{L-C} \\
+R_{b,i}= P_1C_{L,i}\bigg(P_3-C_{L-C,i}\bigg)-C_{L-C,i}$$ 
+
+Free drug in hydrogel varies according to
+
+$$\frac {\partial C_L}{\partial \tau} = \bigg[ \frac {D}{k_2 \delta^2} \bigg ]\frac{\partial^2C_L}{\partial z^2}-R_b  \\
+\frac{dC_{L,i}}{d\tau} = P_2 \frac{C_{L,i+1}+2C_{L,i}+C_{L,i-1}}{\Delta^2}-R_{b,i} \\
+(i = 1,2, ..., N-1 )$$
+
+Drug to cyclodextrin complex varies according to
+
+$$\frac {\partial C_{L-C}} {\partial \tau} = R_b \\
+\frac{\partial C_{L-C}} {\partial \tau} = R_{b,i} \\
+(i = 1,2, ..., N-1 )$$
+
+With dimensionless boundary conditions at the center of the hydrogel given by
+
+$$z = 0 , \frac {\partial C_L}{\partial z} = 0 \\
+i = 0: \frac{\partial C_{L,0}}{\partial z} = 0 $$
+For the release phase the dimensionless initial conditions are given by
+
+$$ \tau = 0, C_L = \frac {C_L^{eq}} {C_0}, C_{L-C} = \frac {C_L^{eq}}{C_0} $$
+which are the same initial conditions for the discretized version.
+
+At the boundary of the hydrogel and drug release solution solution
+
+$$\tau = 0, z = 1, C_L = 0 \\
+\tau = 0, i = 1: C_{L,N}=0$$
+
+
+$$\frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[\frac{D} {k_2 \delta^2}\bigg] \frac {\partial C_l}{\partial z} \\
+\frac {dM_R} {d \tau}=-\frac{1}{2}P_2\frac{C_{L,N}-C_{L,N-1}}{\Delta} $$
+
+And with initial conditions given by:
+
+$$M_R = 0, \tau = 0$$
+
+
+```{r}
+library(deSolve)
+# Parameters
+N   = 50 # Number of boxes
+M_l = 2
+C_o = 1 # Loading concentration after 
+
+
+V_h = 0.00785 # hydrogel volume in ml
+C_T = 15*(15/1000)/V_h # Total CD available
+C_c = C_T  # Percent Free
+k1  = 12.5*39.2 # M/h^-1
+k2  = 39.2 # h^-1
+K = k1/k2
+L_eq = (C_o)/(1+K*C_c) # Ligand Equilibrium
+complex_eq = C_o-((C_o)/(1+K*C_c))
+thickness = 0.05
+D   = 0.633*k2*(thickness^2) # Diffusion coefficient
+delz = 1/N
+
+
+
+
+
+
+
+
+
+
+
+
+# Parameters
+# parameters <- c(
+# p1 = k1*C_o/k2,
+# p2 = D/(k2*delz^2),
+# p3 = C/L_o
+
+# Initial Value of State Variables
+
+LIGAND = rep(L_eq/N, N)
+LIGAND[N] <- 0
+COMPLEX = rep(complex_eq/N, times = N)
+RELEASE <- 0
+
+state <- c(LIGAND = LIGAND,
+           COMPLEX = COMPLEX,
+           RELEASE = RELEASE)
+
+
+affinity <- function(t, state , parms, ...){
+  
+p1 = k1*C_o/k2
+p2 = D/(k2*thickness^2)
+p3 = C_T/C_o
+
+  LIGAND <- state[1:N]
+  COMPLEX <- state[(N+1):(2*N)]
+  RELEASE <- state[2*N+1]
+  dLIGAND <- rep(0, times = N)
+  dCOMPLEX <- rep(0, times = N)
+  Rb <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
+  dRELEASE <- 0
+
+
+for(i in 1:(N-1)){
+Rb[i] <- p1*LIGAND[i]*(p3 - COMPLEX[i]) - COMPLEX[i]  
+    if(i == 1) {
+dLIGAND[i] <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]}
+    if(i > 1 & i < (N-1)){
+dLIGAND[i] <- p2*(LIGAND[i + 1]-2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
+    if(i == (N-1)){
+dLIGAND[i] <-  p2*(-2*LIGAND[i-1]+LIGAND[i-2])/(delz^2) - Rb[i-1]}
+  
+
+dCOMPLEX[i] <- Rb[i] 
+dRELEASE <- -(1/2)*(LIGAND[N]-LIGAND[(N-1)])/delz
+      
+
+}
+
+dudt <- rep(0, 2*N)
+
+for(i in 1:N){
+  dudt[i] <- dLIGAND[i]
+  dudt[i+N] <- dCOMPLEX[i]
+}
+ dudt[(2*N)+1] <- dRELEASE
+  ncall <<- ncall+1 
+return(list(c(dudt))) 
+             
+  }
+ 
+ncall <- 0
+times <- seq(0, 1000, by = 0.5)
+
+out <- ode(func = affinity,
+           times = times, 
+           y = state, parms = NULL)
+
+
+
+
+```
+
+
+
+```{r}
+library(tidyverse)
+
+tidy_out <- as.data.frame(out) %>%
+  gather(., key = "species", value = "concentration", -time) %>%
+  separate(col = species, into = c("species", "z"), sep = "(?<=[:alpha:])(?=[:digit:])") %>%
+  mutate(z = as.numeric(z)) %>%
+  mutate(time = time/k2) # time in hrs
+
+tidy_out %>%
+  filter(species == "LIGAND") %>%
+  ggplot(., aes(x= time, y = z))+
+  geom_raster(aes(fill = `concentration`), hjust = 0.5, vjust= 0.5, interpolate = F)
+```
+
+
+In this trial we will follow William Shchieser example in his book of analyzing
+partial differential equations in R using the method of lines. In general Schieser approaches the solution of PDEs by making use of three main parts.  
+    1. A main program providing  
+       i) All the files and fx sourced into the program which contain  the derivative approximations 
+       ii) The parameters explored  
+       iii) The choice for the spatial derivative  
+       iv) The level of output  
+       v) The initial conditions  
+       vi) The ode call to solve the system of equations  
+    2. A PDE definition function which calls an external function to solve the spatial derivative. 
+    3. An external function to resolve the timestep  
+```{r}
+tidy_out %>%
+  # filter(first(time)) %>%
+  filter(species == "LIGAND") %>%
+  filter(time < 0.0002) %>%
+  summarise(Total_LIGAND = sum(concentration*C_o))
+```
+
+```{r}
+tidy_out %>%
+  filter(species == "RELEASE") %>%
+  mutate(release = cumsum(concentration)) %>%
+  ggplot(., aes(x = time, y = release))+
+  geom_point()
+```
+
