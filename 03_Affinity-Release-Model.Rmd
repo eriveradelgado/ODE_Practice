@@ -62,6 +62,7 @@ $$M_R = 0, \tau = 0$$
 
 ```{r}
 library(deSolve)
+
 # Parameters
 N   = 50 # Number of boxes
 M_l = 2
@@ -81,23 +82,6 @@ D   = 0.633*k2*(thickness^2) # Diffusion coefficient
 delz = 1/N
 
 
-
-
-
-
-
-
-
-
-
-
-# Parameters
-# parameters <- c(
-# p1 = k1*C_o/k2,
-# p2 = D/(k2*delz^2),
-# p3 = C/L_o
-
-# Initial Value of State Variables
 
 LIGAND = rep(L_eq/N, N)
 LIGAND[N] <- 0
@@ -171,14 +155,23 @@ library(tidyverse)
 
 tidy_out <- as.data.frame(out) %>%
   gather(., key = "species", value = "concentration", -time) %>%
-  separate(col = species, into = c("species", "z"), sep = "(?<=[:alpha:])(?=[:digit:])") %>%
+  separate(col = species, 
+           into = c("species", "z"), 
+           sep = "(?<=[:alpha:])(?=[:digit:])") %>%
   mutate(z = as.numeric(z)) %>%
   mutate(time = time/k2) # time in hrs
 
+library(viridis)
+library(ggthemes)
 tidy_out %>%
   filter(species == "LIGAND") %>%
   ggplot(., aes(x= time, y = z))+
-  geom_raster(aes(fill = `concentration`), hjust = 0.5, vjust= 0.5, interpolate = F)
+  geom_raster(aes(fill = `concentration`),
+              hjust = 0.5,
+              vjust= 0.5, 
+              interpolate = F)+
+  scale_fill_viridis()+
+  theme_tufte()
 ```
 
 
@@ -190,22 +183,25 @@ partial differential equations in R using the method of lines. In general Schies
        iii) The choice for the spatial derivative  
        iv) The level of output  
        v) The initial conditions  
+        
        vi) The ode call to solve the system of equations  
     2. A PDE definition function which calls an external function to solve the spatial derivative. 
     3. An external function to resolve the timestep  
 ```{r}
-tidy_out %>%
+Loading <- tidy_out %>%
   # filter(first(time)) %>%
   filter(species == "LIGAND") %>%
   filter(time < 0.0002) %>%
-  summarise(Total_LIGAND = sum(concentration*C_o))
+  summarise(Total_LIGAND = sum(concentration*C_o)) %>%
+  as_vector()
 ```
 
 ```{r}
 tidy_out %>%
   filter(species == "RELEASE") %>%
-  mutate(release = cumsum(concentration)) %>%
+  mutate(release = 100*cumsum(concentration*C_o/Loading)) %>%
   ggplot(., aes(x = time, y = release))+
-  geom_point()
+  geom_point()+
+  theme_hc()
 ```
 
