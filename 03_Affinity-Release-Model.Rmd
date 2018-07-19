@@ -1,10 +1,12 @@
 ---
 title: "Affinity Release Model"
 author: "Edgardo Rivera-Delgado"
-output: html_notebook
-date: 2018-03-01
-bibliography: QSPR.bib
+date: '2018-03-01'
+output:
+  word_document: default
+  html_notebook: default
 csl: biomaterials.csl
+bibliography: QSPR.bib
 ---
 
 # Equations for Drug Release
@@ -31,6 +33,7 @@ $$\frac {\partial C_L}{\partial \tau} = \bigg[ \frac {D}{k_2 \delta^2} \bigg ]\f
 \frac{dC_{L,i}}{d\tau} = P_2 \frac{C_{L,i+1}+2C_{L,i}+C_{L,i-1}}{\Delta^2}-R_{b,i} \\
 (i = 1,2, ..., N-1 )$$
 
+
 Drug to cyclodextrin complex varies according to
 
 $$\frac {\partial C_{L-C}} {\partial \tau} = R_b \\
@@ -46,38 +49,46 @@ For the release phase the dimensionless initial conditions are given by
 $$ \tau = 0, C_L = \frac {C_L^{eq}} {C_0}, C_{L-C} = \frac {C_L^{eq}}{C_0} $$
 which are the same initial conditions for the discretized version.
 
-At the boundary of the hydrogel and drug release solution solution
+Conditions at the boundary of the hydrogel and drug release solution 
 
 $$\tau = 0, z = 1, C_L = 0 \\
 \tau = 0, i = 1: C_{L,N}=0$$
 
 
-$$\frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[\frac{D} {k_2 \delta^2}\bigg] \frac {\partial C_l}{\partial z} \\
-\frac {dM_R} {d \tau}=-\frac{1}{2}P_2\frac{C_{L,N}-C_{L,N-1}}{\Delta} $$
+$$\frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[\frac{D} {k_2 \delta^2}\bigg] \frac {\partial C_l}{\partial z} \\ 
+\frac {dM_R} {d \tau}=-\frac{1}{2}P_2\frac{C_{L,N}-C_{L,N-1}}{\Delta}$$
+
+$$ \frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[P_2\bigg] \frac {\partial C_l}{\partial z}$$
 
 And with initial conditions given by:
 
 $$M_R = 0, \tau = 0$$
 
+$$ P_1 = \bigg[\frac{K_1*C_0}{K_2}\bigg], P_2 = \bigg[\frac{D}{K_2\delta^2}\bigg], P_3 = \bigg[\frac{C_T}{C_0}\bigg]$$
 
+This model translates to deSolve in the following way
 ```{r}
 library(deSolve)
 
 # Parameters
-N   = 50 # Number of boxes
-M_l = 2
-C_o = 1 # Loading concentration after 
-
-
-V_h = 0.00785 # hydrogel volume in ml
-C_T = 15*(15/1000)/V_h # Total CD available
+N   = 50 # Number of boxes (dimensionless)
+M_l = 2 # Initial Loading Concentration in moles  (mg)
+bcd_MW = 1134.98 # (mg/mmol)
+bcd_disk_mass = 15 # (mg)
+V_h = 0.00785 # hydrogel volume in (ml)
+C_o = M_l/V_h # Loading concentration  (mg/ml)
+C_T = 15*(15/1000)/V_h # 
+# C_T = C_c + C_LC, which means that the total amount of cd is fixed and exists 
+# in either the free of ligand (C_c) or bound (C_LC )state
+# Total CD available. I don't know how I determined this constant
 C_c = C_T  # Percent Free
 k1  = 12.5*39.2 # M/h^-1
 k2  = 39.2 # h^-1
 K = k1/k2
+
 L_eq = (C_o)/(1+K*C_c) # Ligand Equilibrium
-complex_eq = C_o-((C_o)/(1+K*C_c))
-thickness = 0.05
+complex_eq = C_o-((C_o)/(1+K*C_c)) # cm
+thickness = 0.05 # units
 D   = 0.633*k2*(thickness^2) # Diffusion coefficient
 delz = 1/N
 
@@ -148,7 +159,11 @@ out <- ode(func = affinity,
 
 ```
 
-
+Now checking the concentrations within the hydrogel below. We can plot the ligand
+and complex concentration side by side. You can see that the concentration of 
+complex (yellowish region) is much higher relative to the ligand which appears
+pitch blue for the duration of the experiment. Does this means that the ligand
+is instantaneously depleted from the matrix?
 
 ```{r}
 library(tidyverse)
@@ -164,34 +179,39 @@ tidy_out <- as.data.frame(out) %>%
 library(viridis)
 library(ggthemes)
 tidy_out %>%
-  filter(species == "LIGAND") %>%
+  filter(species %in% c("LIGAND", "COMPLEX")) %>%
   ggplot(., aes(x= time, y = z))+
   geom_raster(aes(fill = `concentration`),
               hjust = 0.5,
               vjust= 0.5, 
               interpolate = F)+
+  facet_wrap(~species)+
+  scale_fill_viridis()+
+  theme_tufte()
+```
+
+In reality the ligand is not depleted from the matrix but present in very low 
+concentrations when compared to the complex.  If we plot just the ligand 
+concentration we get a different picture as shown below.
+```{r}
+tidy_out %>%
+  filter(species %in% c("LIGAND")) %>%
+  ggplot(., aes(x= time, y = z))+
+  geom_raster(aes(fill = `concentration`),
+              hjust = 0.5,
+              vjust= 0.5, 
+              interpolate = F)+
+  facet_wrap(~species)+
   scale_fill_viridis()+
   theme_tufte()
 ```
 
 
-In this trial we will follow William Shchieser example in his book of analyzing
-partial differential equations in R using the method of lines. In general Schieser approaches the solution of PDEs by making use of three main parts.  
-    1. A main program providing  
-       i) All the files and fx sourced into the program which contain  the derivative approximations 
-       ii) The parameters explored  
-       iii) The choice for the spatial derivative  
-       iv) The level of output  
-       v) The initial conditions  
-        
-       vi) The ode call to solve the system of equations  
-    2. A PDE definition function which calls an external function to solve the spatial derivative. 
-    3. An external function to resolve the timestep  
 ```{r}
 Loading <- tidy_out %>%
   # filter(first(time)) %>%
   filter(species == "LIGAND") %>%
-  filter(time < 0.0002) %>%
+  filter(time < 0.0002) %>% # Grab the first column
   summarise(Total_LIGAND = sum(concentration*C_o)) %>%
   as_vector()
 ```
@@ -199,8 +219,17 @@ Loading <- tidy_out %>%
 ```{r}
 tidy_out %>%
   filter(species == "RELEASE") %>%
-  mutate(release = 100*cumsum(concentration*C_o/Loading)) %>%
+  mutate(release = 100*cumsum(concentration*C_o)/(L_eq+complex_eq)) %>%
   ggplot(., aes(x = time, y = release))+
+  geom_point()+
+  theme_hc()
+```
+I
+```{r}
+tidy_out %>%
+  filter(species == "COMPLEX") %>%
+  mutate(bound = 100*sum(concentration*C_o)/Loading) %>%
+  ggplot(., aes(x = time, y = bound))+
   geom_point()+
   theme_hc()
 ```
