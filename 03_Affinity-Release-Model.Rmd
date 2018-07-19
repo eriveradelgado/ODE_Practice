@@ -76,10 +76,18 @@ M_l = 2 # Initial Loading Concentration in moles  (mg)
 bcd_MW = 1134.98 # (mg/mmol)
 bcd_disk_mass = 15 # (mg)
 V_h = 0.00785 # hydrogel volume in (ml)
-C_o = M_l/V_h # Loading concentration  (mg/ml)
-C_T = 15*(15/1000)/V_h # 
+C_o = M_l/V_h # Loading concentration  (mg/ml) C_o = C_LC_eq+C_L_eq = M_l/V_h
+equilibrium_estimate <- function(C_o, K){
+  if(C_o >= K)
+  C_LC <- 1
+  if(C_o <= K)
+  C_LC <- K/C_o
+}
+C_LC = equilibrium_estimate(C_o, K)
+C_T = 0.7*bcd_disk_mass/bcd_MW/V_h # mmol/ml == mM
 # C_T = C_c + C_LC, which means that the total amount of cd is fixed and exists 
 # in either the free of ligand (C_c) or bound (C_LC )state
+
 # Total CD available. I don't know how I determined this constant
 C_c = C_T  # Percent Free
 k1  = 12.5*39.2 # M/h^-1
