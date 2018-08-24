@@ -54,77 +54,30 @@ Conditions at the boundary of the hydrogel and drug release solution
 $$\tau = 0, z = 1, C_L = 0 \\
 \tau = 0, i = 1: C_{L,N}=0$$
 
-
+The rate of release is given by the following equation
 $$\frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[\frac{D} {k_2 \delta^2}\bigg] \frac {\partial C_l}{\partial z} \\ 
 \frac {dM_R} {d \tau}=-\frac{1}{2}P_2\frac{C_{L,N}-C_{L,N-1}}{\Delta}$$
 
-
-$$ \frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[P_2\bigg] \frac {\partial C_l}{\partial z}$$
 
 And with initial conditions given by:
 
 $$M_R = 0, \tau = 0$$
 
 $$ P_1 = \bigg[\frac{K_1*C_0}{K_2}\bigg], P_2 = \bigg[\frac{D}{K_2\delta^2}\bigg], P_3 = \bigg[\frac{C_T}{C_0}\bigg]$$
-
-This model translates to deSolve in the following way
 ```{r}
-library(deSolve)
-
-# Parameters
-N   = 50 # Number of boxes (dimensionless)
-M_l = .002 # Initial Loading concentration in millimoles.
-bcd_MW = 1134.98 # (mg/millimol)
-bcd_disk_mass = 15 # (mg)
-V_h = 0.00785 # hydrogel volume in (ml)
-k2  = 36.9 # h^-1
-k1  = 303.7*k2*1000 # mM^-1*h^-1
-K = k1/k2 # mM^-1
-
-C_T = (0.7*bcd_disk_mass/bcd_MW)/V_h # mmol/ml == mM
-# C_T = C_c + C_LC, which means that the total amount of cd is fixed and exists 
-# in either the free of ligand (C_c) or bound (C_LC )state
-
-C_o = M_l/V_h # Loading concentration  (mg/ml) C_o = C_LC_eq+C_L_eq = M_l/V_h. Should be below C_T
-
-# Total CD free to bind to drug
-# bound_fraction <- 
-C_c = C_T - C_o     # All Drug Bound
-# C_c = C_T - C_o * 0 # ALL CD FREE
-# C_c = C_T - C_o * bound_fraction 
-# C_c = C_o
-
-L_eq = (C_o)/(1+K*C_c) # Ligand Equilibrium
-complex_eq = C_o-((C_o)/(1+K*C_c)) # 
-thickness = 0.05 # cm
-D   = 0.933*k2*(thickness^2) # Diffusion coefficient
-delz = 1/N # dimensionless
-
-
-
-LIGAND = rep(L_eq/(C_o), N)
-LIGAND[N] <- 0
-COMPLEX = rep(complex_eq/(C_o), times = N)
-RELEASE <- 0
-
-state <- c(LIGAND = LIGAND,
-           COMPLEX = COMPLEX,
-           RELEASE = RELEASE)
-
-
 affinity <- function(t, state , parms, ...){
   
 p1 = k1*C_o/k2
-p2 = D/(k2*thickness^2)
+p2 = 0.933
 p3 = C_T/C_o
 
   LIGAND <- state[1:N]
   COMPLEX <- state[(N+1):(2*N)]
-  RELEASE <- state[2*N+1]
-  dLIGAND <- rep(0, times = N)
-  dCOMPLEX <- rep(0, times = N)
+ # RELEASE <- state[2*N+1]
+  dLIGAND <- rep(0, times = N-1)
+  dCOMPLEX <- rep(0, times = N-1)
   Rb <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
-  dRELEASE <- 0
+ # dRELEASE <- 0
 
 
 for(i in 1:(N-1)){
@@ -134,29 +87,81 @@ dLIGAND[i] <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]}
     if(i > 1 & i < (N-1)){
 dLIGAND[i] <- p2*(LIGAND[i + 1]-2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
     if(i == (N-1)){
-dLIGAND[i] <-  p2*(-2*LIGAND[i-1]+LIGAND[i-2])/(delz^2) - Rb[i-1]}
+dLIGAND[i] <-  p2*(-2*LIGAND[i]+LIGAND[i-1])/(delz^2) - Rb[i]}
   
-
-dCOMPLEX[i+1] <- Rb[i+1] 
-dRELEASE <- -(1/2)*(LIGAND[N]-LIGAND[(N-1)])/delz
-      
-
+dCOMPLEX[i] <- Rb[i] 
 }
-
-dudt <- rep(0, 2*N)
+#dRELEASE <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/delz
+dudt <- rep(0, (2*N))
 
 for(i in 1:N){
   dudt[i] <- dLIGAND[i]
-  dudt[i+N] <- dCOMPLEX[i]
+  dudt[i+(N)] <- dCOMPLEX[i]
 }
- dudt[(2*N)+1] <- dRELEASE
+ #dudt[(2*N)+1] <- dRELEASE
   ncall <<- ncall+1 
 return(list(c(dudt))) 
              
   }
+```
+
+This model translates to deSolve in the following way
+```{r}
+library(deSolve)
+
+# Parameters
+N   = 50 # Number of boxes (dimensionless)
+M_l = .15 # Initial Loading concentration in millimoles.
+bcd_MW = 1134.98 # (mg/millimol)
+bcd_disk_mass = 15 # (mg)
+V_h = 0.0785 # hydrogel volume in (ml)
+k2  = 36.9 # h^-1
+k1  = 303.7*k2*1000 # mM^-1*h^-1
+K = k1/k2 # mM^-1
+
+C_T = (0.7*bcd_disk_mass/bcd_MW)/V_h # mmol/ml == mM
+# C_T = C_c + C_LC, which means that the total amount of cd is fixed and exists 
+# in either the free of ligand (C_c) or bound (C_LC )state
+
+C_o = M_l # Loading concentration  (mg/ml) C_o = C_LC_eq+C_L_eq = M_l/V_h. Should be below C_T
+
+# Total CD free to bind to drug
+# bound_fraction <- 
+C_c = 0.07    # All Drug Bound
+# C_c = C_T - C_o * 0 # ALL CD FREE
+# C_c = C_T - C_o * bound_fraction 
+# C_c = C_o
+
+#L_eq = (C_o)/(1+K*C_c) # Ligand Equilibrium
+#complex_eq = C_o-((C_o)/(1+K*C_c)) # 
+# From Alison
+complex_eq = C_T - C_c
+L_eq = C_o - complex_eq
+thickness = 0.05 # cm
+D   = 0.933*k2*(thickness^2) # Diffusion coefficient
+delz = 1/N # dimensionless
+
+
+
+LIGAND = rep(L_eq/(C_o*(N-1)), times = N-1)
+LIGAND[N] <- 0
+COMPLEX = rep(complex_eq/(C_o*N), times = N)
+RELEASE <- 0
+
+state <- c(LIGAND = LIGAND,
+           COMPLEX = COMPLEX)#,
+    #       RELEASE = RELEASE)
+
+```
+
+
+```{r}
+
+
+
  
 ncall <- 0
-times <- seq(0, 1000, by = 1)
+times <- seq(0, 24500, by = 1)
 
 out <- ode(func = affinity,
            times = times, 
@@ -203,13 +208,12 @@ concentrations when compared to the complex. If we plot just the ligand
 concentration we get a different picture as shown below.
 ```{r}
 tidy_out %>%
-  filter(species %in% c("LIGAND")) %>%
+  filter(species %in% c("LIGAND")) %>% 
   ggplot(., aes(x= time, y = z))+
   geom_raster(aes(fill = `concentration`),
               hjust = 0.5,
               vjust= 0.5, 
               interpolate = F)+
-  facet_wrap(~species)+
   scale_fill_viridis()+
   theme_tufte()
 ```
@@ -220,7 +224,7 @@ tidy_out %>%
 ```{r}
 tidy_out %>%
   filter(species == "RELEASE") %>%
-  mutate(release = 100*cumsum(concentration)*100) %>%
+  mutate(release =  cumsum(concentration)) %>%
   ggplot(., aes(x = time, y = release))+
   geom_point()+
   theme_hc()
