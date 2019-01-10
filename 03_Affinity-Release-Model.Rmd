@@ -3,8 +3,10 @@ title: "Affinity Release Model"
 author: "Edgardo Rivera-Delgado"
 date: '2018-03-01'
 output:
-  word_document: default
+  html_document:
+    df_print: paged
   html_notebook: default
+  word_document: default
 csl: biomaterials.csl
 bibliography: QSPR.bib
 ---
@@ -14,13 +16,16 @@ bibliography: QSPR.bib
 Release from affinity polymer disks can be modeled as described by Andrew Fu. [@Fu:2011cj]. 
 
 
+
 In the next set of equations the continuous equation will be given followed by the
 discretized version used to solve it with the method of lines. 
 
 The spatial derivative is discretized as given
 
-$$ \Delta = \frac{1}{N}, z_{i} = i\Delta \\
-(i = 0,1,2,...,N)$$
+$$ \Delta = \frac{1}{N}, z_{i}^{*} = i\Delta \\
+z^{*} = \frac{z}{\delta}\\
+(i = 0,1,2,...,N) \\
+z = \frac{\Sigma (0,1,2,...,N) *\delta} {N}??$$
 
 The rate of binding within the hydrogel is given by
 
@@ -66,39 +71,43 @@ $$M_R = 0, \tau = 0$$
 $$ P_1 = \bigg[\frac{K_1*C_0}{K_2}\bigg], P_2 = \bigg[\frac{D}{K_2\delta^2}\bigg], P_3 = \bigg[\frac{C_T}{C_0}\bigg]$$
 ```{r}
 affinity <- function(t, state , parms, ...){
+
   
+# Assigning parameter values    
 p1 = k1*C_o/k2
 p2 = 0.933
 p3 = C_T/C_o
 
+
+# Extracting values passed onto the function through the state parameter
   LIGAND <- state[1:N]
   COMPLEX <- state[(N+1):(2*N)]
- # RELEASE <- state[2*N+1]
-  dLIGAND <- rep(0, times = N-1)
-  dCOMPLEX <- rep(0, times = N-1)
-  Rb <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
- # dRELEASE <- 0
+  RELEASE <- state[2*N+1]
+
+# Initializing the derivatives vectors
+  dLIGAND <- rep(0, times = N)
+  dCOMPLEX <- rep(0, times = N)
+  dRELEASE <- 0
+
+# Calculating the rate of change of the state variables
+
+Rb <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
+
+dCOMPLEX <- Rb
+
+dLIGAND[1] <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]
+dLIGAND[N-1] <-  p2 * (-2*LIGAND[N-1]+LIGAND[N-2])/(delz^2) - Rb[N-1]
+for(i in 2:(N-2)){
+dLIGAND[i] <- p2*(LIGAND[i + 1]- 2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
 
 
-for(i in 1:(N-1)){
-Rb[i] <- p1*LIGAND[i]*(p3 - COMPLEX[i]) - COMPLEX[i]  
-    if(i == 1) {
-dLIGAND[i] <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]}
-    if(i > 1 & i < (N-1)){
-dLIGAND[i] <- p2*(LIGAND[i + 1]-2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
-    if(i == (N-1)){
-dLIGAND[i] <-  p2*(-2*LIGAND[i]+LIGAND[i-1])/(delz^2) - Rb[i]}
   
-dCOMPLEX[i] <- Rb[i] 
-}
-#dRELEASE <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/delz
-dudt <- rep(0, (2*N))
+dRELEASE <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz^2)
 
-for(i in 1:N){
-  dudt[i] <- dLIGAND[i]
-  dudt[i+(N)] <- dCOMPLEX[i]
-}
- #dudt[(2*N)+1] <- dRELEASE
+
+dudt <- rep(0, (2*(N)+1))
+dudt <- c(dLIGAND, dCOMPLEX, dRELEASE)
+
   ncall <<- ncall+1 
 return(list(c(dudt))) 
              
@@ -111,15 +120,15 @@ library(deSolve)
 
 # Parameters
 N   = 50 # Number of boxes (dimensionless)
-M_l = .15 # Initial Loading concentration in millimoles.
+M_l = .015 # Initial Loading concentration in millimoles.
 bcd_MW = 1134.98 # (mg/millimol)
 bcd_disk_mass = 15 # (mg)
 V_h = 0.0785 # hydrogel volume in (ml)
 k2  = 36.9 # h^-1
-k1  = 303.7*k2*1000 # mM^-1*h^-1
+k1  = 33.7*k2*1000 # mM^-1*h^-1
 K = k1/k2 # mM^-1
 
-C_T = (0.7*bcd_disk_mass/bcd_MW)/V_h # mmol/ml == mM
+#(0.7*bcd_disk_mass/bcd_MW)/V_h # mmol/ml == mM
 # C_T = C_c + C_LC, which means that the total amount of cd is fixed and exists 
 # in either the free of ligand (C_c) or bound (C_LC )state
 
@@ -127,49 +136,43 @@ C_o = M_l # Loading concentration  (mg/ml) C_o = C_LC_eq+C_L_eq = M_l/V_h. Shoul
 
 # Total CD free to bind to drug
 # bound_fraction <- 
-C_c = 0.07    # All Drug Bound
+C_c = 0.09*C_o    # A fraction all Drug Bound
 # C_c = C_T - C_o * 0 # ALL CD FREE
 # C_c = C_T - C_o * bound_fraction 
 # C_c = C_o
-
-#L_eq = (C_o)/(1+K*C_c) # Ligand Equilibrium
-#complex_eq = C_o-((C_o)/(1+K*C_c)) # 
+C_T = 1.75*(C_c+C_o) #0.1178505
+(L_eq = ((C_o)/(1+K*C_c))) # Ligand Equilibrium
+(complex_eq = (C_o-((C_o)/(1+K*C_c)))) # 
 # From Alison
-complex_eq = C_T - C_c
-L_eq = C_o - complex_eq
+#complex_eq = C_T - C_c
+#L_eq = C_o - complex_eq
+
 thickness = 0.05 # cm
 D   = 0.933*k2*(thickness^2) # Diffusion coefficient
 delz = 1/N # dimensionless
 
 
 
-LIGAND = rep(L_eq/(C_o*(N-1)), times = N-1)
+#LIGAND = rep(L_eq/(C_o*(N-1)), times = N-1)
+LIGAND = rep(L_eq/(C_o*(N-1)), times = N)
 LIGAND[N] <- 0
 COMPLEX = rep(complex_eq/(C_o*N), times = N)
+#COMPLEX = rep(complex_eq, times = N)
 RELEASE <- 0
 
 state <- c(LIGAND = LIGAND,
-           COMPLEX = COMPLEX)#,
-    #       RELEASE = RELEASE)
+           COMPLEX = COMPLEX,
+           RELEASE = RELEASE)
 
 ```
 
 
 ```{r}
-
-
-
- 
 ncall <- 0
-times <- seq(0, 24500, by = 1)
-
+times <- seq(0, 700*k2, by = 1)
 out <- ode(func = affinity,
            times = times, 
-           y = state, parms = NULL)
-
-
-
-
+           y = state, parms = NULL, method = "daspk")
 ```
 
 Now checking the concentrations within the hydrogel below. We can plot the ligand
@@ -181,14 +184,17 @@ is instantaneously depleted from the matrix?
 ```{r}
 library(tidyverse)
 
-tidy_out <- as.data.frame(out) %>%
+tidy_out <- as.data.frame(out) %>% 
+  select(-RELEASE) %>%
   gather(., key = "species", value = "concentration", -time) %>%
   separate(col = species, 
            into = c("species", "z"), 
            sep = "(?<=[:alpha:])(?=[:digit:])") %>%
   mutate(z = as.numeric(z)) %>%
   mutate(time = time/k2) # time in hrs
+```
 
+```{r}
 library(viridis)
 library(ggthemes)
 tidy_out %>%
@@ -208,7 +214,7 @@ concentrations when compared to the complex. If we plot just the ligand
 concentration we get a different picture as shown below.
 ```{r}
 tidy_out %>%
-  filter(species %in% c("LIGAND")) %>% 
+  filter(species %in% c("LIGAND"), time > 3, time < 700/k2) %>% 
   ggplot(., aes(x= time, y = z))+
   geom_raster(aes(fill = `concentration`),
               hjust = 0.5,
@@ -217,25 +223,117 @@ tidy_out %>%
   scale_fill_viridis()+
   theme_tufte()
 ```
+```{r}
+tidy_out %>%
+  filter(time > 5,  time < 700/k2, species %in% c("LIGAND")) %>%
+  ggplot(., aes(x = z, y = concentration, color = time))+
+  facet_wrap(~species)+
+  geom_point()
+```
 
 
 
 
 ```{r}
-tidy_out %>%
-  filter(species == "RELEASE") %>%
-  mutate(release =  cumsum(concentration)) %>%
-  ggplot(., aes(x = time, y = release))+
+out %>% 
+  as.data.frame() %>%
+  select(time, RELEASE) %>%
+  ggplot(., aes(x = time/k2, y = RELEASE))+
   geom_point()+
-  theme_hc()
+  theme_gray()
 ```
 
+This following piece of code should be a reality check. It gives the last two
+layers of the ligand in the gel that should give a sense to what's happening
+
+
+```{r}
+tidy_out %>% 
+  filter(species == "LIGAND", z %in% c((N-1):N)) %>% 
+  group_by(z) %>% 
+  mutate(ligand =  concentration) %>% 
+  ggplot(., aes(x = time, y = ligand, color = as.factor(z)))+
+  geom_point()
+```
+
+
+```{r}
+tidy_out %>%
+  filter(species == "LIGAND", z %in% c(1:N)) %>% 
+  group_by(z) %>% 
+  ggplot(., aes(x = time, y = concentration, color = z))+
+  geom_point()
+```
 ```{r}
 tidy_out %>%
   filter(species == "COMPLEX") %>%
-  mutate(bound = 100*sum(concentration)) %>%
-  ggplot(., aes(x = time, y = bound))+
-  geom_point()+
-  theme_hc()
+  group_by(time) %>%
+  summarize(complex = sum(concentration)) %>% 
+  ggplot(., aes(x = time, y = complex))+
+  geom_point()
+```
+```{r}
+tidy_out %>%
+  filter(species == "LIGAND") %>%
+  group_by(time) %>%
+  summarize(ligand = sum(concentration)) %>% 
+  ggplot(., aes(x = time, y = ligand))+
+  geom_point()
+```
+```{r}
+tidy_out %>%
+  filter(species == "LIGAND") %>%
+  group_by(time) %>%
+  summarise(sum = sum(concentration)) %>% 
+  ungroup() %>%
+  mutate(cumulative = cumsum(sum))%>%
+  ggplot(., aes(x = time, y = cumulative))+
+  geom_point()
 ```
 
+
+```{r}
+ ligand <- tidy_out %>%
+  filter(species == "LIGAND") %>%
+  group_by(time) %>%
+  summarize(ligand = sum(concentration))
+complex <- tidy_out %>%
+  filter(species == "COMPLEX") %>%
+  group_by(time) %>%
+  summarize(complex = sum(concentration))
+release <- out %>%
+  as.data.frame() %>%
+  select(time, RELEASE) %>%
+  mutate(time = time / k2)
+```
+
+```{r}
+inner_join(ligand, complex, by = "time") %>%
+  inner_join(release, by = "time") %>%
+  as_tibble()%>%
+  filter(time > 300) %>%
+  mutate(conservation = complex+2*RELEASE) %>%
+  ggplot(., aes(x = time, y = conservation))+
+  geom_point()+
+  geom_point(aes(x = time, y = 2*RELEASE), color = "red")
+  # geom_point(aes(x = time, y = cumsum(ligand)), color = "blue")+
+  #geom_point(aes(x = time, y = complex), color = "purple")
+```
+# Possible causes for the lack of mass conservation
+  + (1/N)*2 
+    + A fractional volume (1/N) of the polymer is sampled and transport assumed to happen through one of the faces(2) but not explicitly stated in the paper. (Done)
+    + In such case the reader should be compentent enough to apply it themselves.
+  + RR is the actual release through the polymer face and scaling the concentration to the volume of the gel is a flawed reasoning. (Remove the N and N-1 scaling and pass onto another file)
+    + Unlikely $C_o = \frac {M_L}{V_h} = C_L_eq + C_L-C_Eq$ and vulic also normalizes total host and ligand concentration to 1
+  + The RR is expressed as a first derivative when it should be a second dervative.  
+    + This could mean that Fu's paper is incorrect in its approximation as a first derivative. (Ask Saidel or Fu) 
+  + Alteratively it could be a problem of numerical approximation. (Email the modeling team) 
+    + Explore other solver methods(ode23[x], ode45[!], daspk[!], etc) (Write onto another file)
+    + The approximation may just be unstable at the very beginning of the simulation 
+  + The system of equations may be wrongly formulated 
+    + Complex may be escaping but not ligand
+      + Rewrite the function without Rb
+    + In the discretization matlab starts at 0 and R starts at index 1 which makes it possible that I am incorrectly translating the system of equations between languages.(Read matlab documentation for ode15s)
+    + Alternatively, I could be including an extra index for i = 1 and i = 50 (In Progress)
+    + Implement in ode.1D (After previous point is finished)
+    + Like Alison, remove RR from the ode and solve separately.

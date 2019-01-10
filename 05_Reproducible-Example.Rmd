@@ -1,0 +1,30 @@
+---
+title: "Reproducible example for syg dynamic modeling group"
+date: "2019-01-09"
+output: html_notebook
+---
+
+# Problem
+I am trying to model a diffusion-reaction process from a paper by Fu et.al[link]
+The process is used to simulate the release of a molecule out of a thin cylindrical
+polymer slab. Within the polymer the molecule can either diffuse or react reversibly
+with a host. The process is solved by employing to approximate the transport. The
+goal is to understand the amount of (1)bound and (2)free drug within the polymer matrix at any given time. Most importantly, the modeling is used to determine the 
+cumulative release process out of the polymer. The paper implements the solution
+for the model in matlab and I would like to translate this approach to R using 
+deSolve. I am having the following problems
+(1) Lack of mass conservation that I believe cannot be attributed to numerical errors
+(2) 
+
+The model equations are briefly presented 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
