@@ -24,8 +24,7 @@ The spatial derivative is discretized as given
 
 $$ \Delta = \frac{1}{N}, z_{i}^{*} = i\Delta \\
 z^{*} = \frac{z}{\delta}\\
-(i = 0,1,2,...,N) \\
-z = \frac{\Sigma (0,1,2,...,N) *\delta} {N}??$$
+(i = 0,1,2,...,N) $$
 
 The rate of binding within the hydrogel is given by
 
@@ -67,7 +66,7 @@ $$\frac {dM_R} {d \tau} = - \frac {1}{2} \bigg[\frac{D} {k_2 \delta^2}\bigg] \fr
 And with initial conditions given by:
 
 $$M_R = 0, \tau = 0$$
-
+The model is rendered dimensionless as it follows
 $$ P_1 = \bigg[\frac{K_1*C_0}{K_2}\bigg], P_2 = \bigg[\frac{D}{K_2\delta^2}\bigg], P_3 = \bigg[\frac{C_T}{C_0}\bigg]$$
 ```{r}
 affinity <- function(t, state , parms, ...){
@@ -75,7 +74,7 @@ affinity <- function(t, state , parms, ...){
   
 # Assigning parameter values    
 p1 = k1*C_o/k2
-p2 = 0.933
+p2 = 0.933 # Strong-Affinity P2
 p3 = C_T/C_o
 
 
@@ -102,7 +101,7 @@ dLIGAND[i] <- p2*(LIGAND[i + 1]- 2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
 
 
   
-dRELEASE <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz^2)
+dRELEASE <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz)
 
 
 dudt <- rep(0, (2*(N)+1))
@@ -125,8 +124,9 @@ bcd_MW = 1134.98 # (mg/millimol)
 bcd_disk_mass = 15 # (mg)
 V_h = 0.0785 # hydrogel volume in (ml)
 k2  = 36.9 # h^-1
-k1  = 33.7*k2*1000 # mM^-1*h^-1
-K = k1/k2 # mM^-1
+#k1  = 33.7*k2*1000 # mM^-1*h^-1
+#K = k1/k2 # mM^-1
+K = 303.7
 
 #(0.7*bcd_disk_mass/bcd_MW)/V_h # mmol/ml == mM
 # C_T = C_c + C_LC, which means that the total amount of cd is fixed and exists 
@@ -238,7 +238,7 @@ tidy_out %>%
 out %>% 
   as.data.frame() %>%
   select(time, RELEASE) %>%
-  ggplot(., aes(x = time/k2, y = RELEASE))+
+  ggplot(., aes(x = time/k2, y = 100*RELEASE))+
   geom_point()+
   theme_gray()
 ```
@@ -337,3 +337,19 @@ inner_join(ligand, complex, by = "time") %>%
     + Alternatively, I could be including an extra index for i = 1 and i = 50 (In Progress)
     + Implement in ode.1D (After previous point is finished)
     + Like Alison, remove RR from the ode and solve separately.
+    
+# Approach to solving this problem using purrr
+
+We can start by gathering all parameters
+
+Then adding the units of the parameters
+
+Checking that the units of the parameters cancel
+
+If they don't, transform the parameters accordingly
+
+Figure out the given values in the paper
+
+Figure out which are not explicitly given
+
+
