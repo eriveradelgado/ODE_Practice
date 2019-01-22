@@ -88,26 +88,30 @@ p3 = C_T/C_o
   dCOMPLEX <- rep(0, times = N)
   dRELEASE <- 0
 
+Rb           <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
 # Calculating the rate of change of the state variables
+dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]
 
-Rb <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
+dLIGAND[N-1] <- p2 * (-2*LIGAND[N-1]+LIGAND[N-2])/(delz^2) - Rb[N-1]
 
-dCOMPLEX <- Rb
-
-dLIGAND[1] <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]
-dLIGAND[N-1] <-  p2 * (-2*LIGAND[N-1]+LIGAND[N-2])/(delz^2) - Rb[N-1]
 for(i in 2:(N-2)){
-dLIGAND[i] <- p2*(LIGAND[i + 1]- 2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
+dLIGAND[i]   <- p2*(LIGAND[i + 1]- 2*LIGAND[i] + LIGAND[i-1])/(delz^2) - Rb[i]}
 
 
-  
+
+dCOMPLEX     <- Rb
+
+
+
+
 dRELEASE <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz)
 
 
-dudt <- rep(0, (2*(N)+1))
+#dudt <- rep(0, (2*(N)+1))
 dudt <- c(dLIGAND, dCOMPLEX, dRELEASE)
 
-  ncall <<- ncall+1 
+ncall <<- ncall+1 
+
 return(list(c(dudt))) 
              
   }
@@ -115,16 +119,18 @@ return(list(c(dudt)))
 
 This model translates to deSolve in the following way
 ```{r}
-library(deSolve)
+
 
 # Parameters
 N   = 50 # Number of boxes (dimensionless)
 M_l = .015 # Initial Loading concentration in millimoles.
-bcd_MW = 1134.98 # (mg/millimol)
-bcd_disk_mass = 15 # (mg)
-V_h = 0.0785 # hydrogel volume in (ml)
+#bcd_MW = 1134.98 # (mg/millimol)
+# bcd_disk_mass = 15 # (mg)
+# V_h = 0.0785 # hydrogel volume in (ml)
 k2  = 36.9 # h^-1
 #k1  = 33.7*k2*1000 # mM^-1*h^-1
+#k1 = 303.7*36.9*1000
+k1 = 303.7*36.9
 #K = k1/k2 # mM^-1
 K = 303.7
 
@@ -168,11 +174,12 @@ state <- c(LIGAND = LIGAND,
 
 
 ```{r}
+library(deSolve)
 ncall <- 0
 times <- seq(0, 700*k2, by = 1)
 out <- ode(func = affinity,
            times = times, 
-           y = state, parms = NULL, method = "daspk")
+           y = state)
 ```
 
 Now checking the concentrations within the hydrogel below. We can plot the ligand
@@ -193,7 +200,7 @@ tidy_out <- as.data.frame(out) %>%
   mutate(z = as.numeric(z)) %>%
   mutate(time = time/k2) # time in hrs
 ```
-
+## 1st Complex versus ligand polymer slab concentration
 ```{r}
 library(viridis)
 library(ggthemes)
@@ -208,9 +215,9 @@ tidy_out %>%
   scale_fill_viridis()+
   theme_tufte()
 ```
-
-In reality the ligand is not depleted from the matrix but present in very low 
-concentrations when compared to the complex. If we plot just the ligand 
+## 2nd Ligand concentration in the polymer slab
+In reality the ligand is not depleted from the polymer matrix but present in very low 
+concentrations compared to the complex. If we plot just the ligand 
 concentration we get a different picture as shown below.
 ```{r}
 tidy_out %>%
@@ -223,6 +230,7 @@ tidy_out %>%
   scale_fill_viridis()+
   theme_tufte()
 ```
+## 3rd another version of 2nd plot
 ```{r}
 tidy_out %>%
   filter(time > 5,  time < 700/k2, species %in% c("LIGAND")) %>%
@@ -231,21 +239,21 @@ tidy_out %>%
   geom_point()
 ```
 
-
-
+## 4th Release variable plot
 
 ```{r}
 out %>% 
   as.data.frame() %>%
   select(time, RELEASE) %>%
-  ggplot(., aes(x = time/k2, y = 100*RELEASE))+
+  ggplot(., aes(x = time/k2, y = RELEASE))+
   geom_point()+
   theme_gray()
 ```
 
+## 5th last two layers of polymer where it meets the media 
 This following piece of code should be a reality check. It gives the last two
-layers of the ligand in the gel that should give a sense to what's happening
-
+layers of the ligand in the gel that should give a sense to what's happening at
+the polymer-media boundary
 
 ```{r}
 tidy_out %>% 
@@ -253,10 +261,11 @@ tidy_out %>%
   group_by(z) %>% 
   mutate(ligand =  concentration) %>% 
   ggplot(., aes(x = time, y = ligand, color = as.factor(z)))+
-  geom_point()
+  geom_point()+
+  ggtitle("Concentration of the last two layers")
 ```
 
-
+# 6th another variant of the 2nd plot
 ```{r}
 tidy_out %>%
   filter(species == "LIGAND", z %in% c(1:N)) %>% 
@@ -264,6 +273,7 @@ tidy_out %>%
   ggplot(., aes(x = time, y = concentration, color = z))+
   geom_point()
 ```
+## 7th Complex depletion over time
 ```{r}
 tidy_out %>%
   filter(species == "COMPLEX") %>%
@@ -272,6 +282,8 @@ tidy_out %>%
   ggplot(., aes(x = time, y = complex))+
   geom_point()
 ```
+
+## 8th Ligand depletion over time
 ```{r}
 tidy_out %>%
   filter(species == "LIGAND") %>%
@@ -280,45 +292,38 @@ tidy_out %>%
   ggplot(., aes(x = time, y = ligand))+
   geom_point()
 ```
+## 9th Depleting concentration from the polymer
 ```{r}
 tidy_out %>%
-  filter(species == "LIGAND") %>%
+  filter(species %in% c("LIGAND", "COMPLEX")) %>%
   group_by(time) %>%
-  summarise(sum = sum(concentration)) %>% 
-  ungroup() %>%
-  mutate(cumulative = cumsum(sum))%>%
-  ggplot(., aes(x = time, y = cumulative))+
+  summarise(concentration = sum(concentration)) %>%
+  ggplot(aes(x = time, y = concentration))+
   geom_point()
 ```
 
-
 ```{r}
- ligand <- tidy_out %>%
-  filter(species == "LIGAND") %>%
-  group_by(time) %>%
-  summarize(ligand = sum(concentration))
-complex <- tidy_out %>%
-  filter(species == "COMPLEX") %>%
-  group_by(time) %>%
-  summarize(complex = sum(concentration))
-release <- out %>%
+tidy_release_media <- out %>%
   as.data.frame() %>%
   select(time, RELEASE) %>%
   mutate(time = time / k2)
+
+tidy_release_polymer <-tidy_out %>%
+  filter(species %in% c("LIGAND", "COMPLEX")) %>%
+  group_by(time) %>%
+  summarise(concentration = sum(concentration))
+
+tidy_release_polymer %>%
+  inner_join(tidy_release_media, by = "time") %>%
+  rename(release_polymer = concentration,
+         release_media = RELEASE) %>%
+  mutate(mass_conservation = release_polymer + release_media) %>%
+  ggplot(aes(x = time, y = mass_conservation))+
+  geom_point()
+
 ```
 
-```{r}
-inner_join(ligand, complex, by = "time") %>%
-  inner_join(release, by = "time") %>%
-  as_tibble()%>%
-  filter(time > 300) %>%
-  mutate(conservation = complex+2*RELEASE) %>%
-  ggplot(., aes(x = time, y = conservation))+
-  geom_point()+
-  geom_point(aes(x = time, y = 2*RELEASE), color = "red")
-  # geom_point(aes(x = time, y = cumsum(ligand)), color = "blue")+
-  #geom_point(aes(x = time, y = complex), color = "purple")
-```
+
 # Possible causes for the lack of mass conservation
   + (1/N)*2 
     + A fractional volume (1/N) of the polymer is sampled and transport assumed to happen through one of the faces(2) but not explicitly stated in the paper. (Done)
@@ -350,6 +355,68 @@ If they don't, transform the parameters accordingly
 
 Figure out the given values in the paper
 
-Figure out which are not explicitly given
+Figure out which are parameter values not explicitly given in the paper
+
+Theorize what possible ranges of values are possible for those parameters not given
+
+Choose three representative values per parameter
+
+Create a list frame with every possible combination of parameter values
 
 
+```{r}
+param_vals <- data.frame(param_1 = c(1, 10, 100),
+     param_2 = c(0.1, 1, 10),
+     param_3 = c(0.001, 0.01, 0.1)
+     ) 
+
+  full_join(param_vals)
+```
+
+ pmap the ode to the list of parameter values
+ 
+ extract the resulting output which I expect to be a list of ode outputs
+ 
+ Visualize the resulting outputs 
+ 
+       
+# Appendix
+
+```{r}
+tidy_out %>%
+  filter(species == "LIGAND") %>%
+  group_by(time) %>%
+  summarise(sum = sum(concentration)) %>% # Sum the concentration of each layer
+  ungroup() %>% 
+  mutate(cumulative = cumsum(sum))%>% # Sum the concentration over time
+  ggplot(., aes(x = time, y = cumulative))+
+  geom_point()
+```
+
+```{r}
+ ligand <- tidy_out %>%
+  filter(species == "LIGAND") %>%
+  group_by(time) %>%
+  summarize(ligand = sum(concentration))
+complex <- tidy_out %>%
+  filter(species == "COMPLEX") %>%
+  group_by(time) %>%
+  summarize(complex = sum(concentration))
+release <- out %>%
+  as.data.frame() %>%
+  select(time, RELEASE) %>%
+  mutate(time = time / k2)
+```
+
+```{r}
+inner_join(ligand, complex, by = "time") %>%
+  inner_join(release, by = "time") %>%
+  as_tibble()%>%
+  filter(time > 300) %>%
+  mutate(conservation = complex+2*RELEASE) %>%
+  ggplot(., aes(x = time, y = conservation))+
+  geom_point()+
+  geom_point(aes(x = time, y = 2*RELEASE), color = "red")
+  # geom_point(aes(x = time, y = cumsum(ligand)), color = "blue")+
+  #geom_point(aes(x = time, y = complex), color = "purple")
+```
