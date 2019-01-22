@@ -15,17 +15,17 @@ bibliography: QSPR.bib
 
 In this post we will practice a few examples from Karline Soateart package 
 *ReacTran*. [@Soetaert:2017wu] My goal by practicing how to solve PDEs and ODEs 
-is to simulate drug delivery from our affinity polymers. Our model should incorporate the affinity 
-binding strength K~D~. We can predict K~D~ using Alison Xin's model. If
-we can input the K~D~ onto a PDE model we could simulate the release of any 
-small molecule. Furthermore we could understand for which drugs, or classes of
-drugs, our model assumptions hold true and provide alternative hypothesis for 
-molecules that can't be predicted. If our hypothesis is correct we should be
-able to pursue drug delivery projects more effectively. Furthermore, we should
-be able to evolve molecules with low affinities towards cyclodextrins into
-molecules with stronger affinities. Alternatively, we could co-evolve molecules
-with high biological target specificity and appropriate affinity for the drug
-delivery device.
+is to simulate drug delivery from our affinity polymers. [@Soetaert:2015wb]Our 
+model should incorporate the affinity binding strength K~D~. We can predict K~D~
+using Alison Xin's model. If we can input the K~D~ onto a PDE model we could 
+simulate the release of any small molecule. Furthermore we could understand for
+which drugs, or classes of drugs, our model assumptions hold true and provide 
+alternative hypothesis for molecules that can't be predicted. If our hypothesis
+is correct we should be able to pursue drug delivery projects more effectively.
+Furthermore, we should be able to evolve molecules with low affinities towards
+cyclodextrins into molecules with stronger affinities. Alternatively, we could
+co-evolve molecules with high biological target specificity and appropriate 
+affinity for the drug delivery device.
 
 First things first.
 
@@ -229,9 +229,9 @@ equation uses a lagging difference?
 
 # ODE Function
 Aphid <- function(t, APHIDS, parameters){
-deltax <- c(0.5, rep(1, numboxes - 1), 0.5) # Must match length, but why 0.5? 61 spaces for deltax
-Flux <- - D * diff(c(0 ,APHIDS, 0))/ deltax # Must match length, but why 0? Because there's nothing at the edges as a boundary condition. 62 spaces for the numerator. Diff reduces length of vector by 1.
-dAPHIDS <- -diff(Flux)/delx + r * APHIDS
+        deltax <- c(0.5, rep(1, numboxes - 1), 0.5) # Must match length, but why 0.5? 61 spaces for deltax
+        Flux <- - D * diff(c(0 ,APHIDS, 0))/ deltax # Must match length, but why 0? Because there's nothing at the edges as a boundary condition. 62 spaces for the numerator. Diff reduces length of vector by 1.
+        dAPHIDS <- -diff(Flux)/delx + r * APHIDS
 
 list(dAPHIDS)
 }
@@ -412,6 +412,19 @@ simulate drug release profiles.
 
 ## Events and roots
 
+Equations can be modified in one of two ways. First an event can be triggered at 
+at predetermined time. Second, a root function can be provided which triggers
+a secondary function once a condition on the main function has been met. In
+deSolve events can be specified by providing a function call in a data frame 
+with 4 columns (var, time, value and method) to the events argument in the ode 
+function. Note that the events argument must be provided as a list. For root 
+functions a root function specifiying which state variable will be modified is 
+written together with an events function. These two functions are passed to the
+events argument inside of deSolve's ode as a list. For more information on 
+implementing roots and events with deSolve read the events documentation.
+
+### Events with data frame specified
+
 ```{r eval = F}
 eventmod <- function(t, var, parms){
   list(dvar = -0.1 * var)
@@ -460,14 +473,69 @@ ggsave(filename = "07_y-vs-t_event-ode.png", path = "./images/", type = "cairo-p
 
 ```
 ![Figure 6](./images/07_y-vs-t_event-ode.png)
+### Events triggered by a root function
+```{r}
 
+ballode <- function(t, y, parms) {
+  dy1 <- y[2]
+  dy2 <- -9.8
+  list(c(dy1, dy2))
+}
 
+root <- function(t, y, parms) y[1]
+
+event <- function(t, y, parms){
+  y[1] <- 0
+  y[2] <- -0.9*y[2]
+  return(y)
+}
+
+yini <- c(height = 0, v = 20)
+times <- seq(from = 0, to = 20, by = 0.01)
+out <- lsode(y = yini, times = times, func = ballode, parms = NULL, 
+           events = list(func = event, root = T), rootfun = root)
+
+out %>%
+  as.data.frame() %>%
+  ggplot()+
+  geom_point(aes(x = time, y = height))+
+  theme_bw()
+
+```
+
+There were some things I found difficult to grasp when implementing this example
+from memory.  
+ 
+ (@) I don't quite understand why ballode must return a list and why
+state variables can be written in bracket notation.   
+Answer from ode's documentation:
+
+>The return value of func should be a list, whose first element is a vector containing the derivatives of y with respect to time, and whose next elements are global values that are required at each point in times. The derivatives must be specified in the same order as the state variables y.  
+
+ (@) Also I don't understand why the event function must explicitly return y.  
+ According to the documentation this is the way that the event function must be
+ written
+
+Delayed differential equations are implemented in a similar fashion as regular ode's
+but won't be discussed in this document.
+
+# Following along Schieser's Book
+
+In this trial we will follow William Shchieser example in his book of analyzing
+partial differential equations in R using the method of lines. In general Schieser approaches the solution of PDEs by making use of three main parts.  
+    1. A main program providing  
+       i) All the files and fx sourced into the program which contain  the derivative approximations 
+       ii) The parameters explored  
+       iii) The choice for the spatial derivative  
+       iv) The level of output  
+       v) The initial conditions  
+        
+       vi) The ode call to solve the system of equations  
+    2. A PDE definition function which calls an external function to solve the spatial derivative. 
+    3. An external function to resolve the timestep  
 
 # Appendix
 
-Item | 
-function|
-parameters|
 
 # References
 
