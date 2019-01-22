@@ -68,6 +68,30 @@ And with initial conditions given by:
 $$M_R = 0, \tau = 0$$
 The model is rendered dimensionless as it follows
 $$ P_1 = \bigg[\frac{K_1*C_0}{K_2}\bigg], P_2 = \bigg[\frac{D}{K_2\delta^2}\bigg], P_3 = \bigg[\frac{C_T}{C_0}\bigg]$$
+$$ Loading = \frac {W_d} {W_g + W_d} $$
+
+5 mg of Fluoro-PEG-Ad yielded 14% Loading 
+Assumming a 10 mg gel this will translates l of 1.65mg of drug made it into the polymer
+For any given drug weight the following equation gives the amount of gel that it will
+be required to maintain a 14% Loading efficiency
+Wg = 6.14 * Wd 
+
+```{r}
+# Estimation of M_l
+drug = 1.65  # mg
+fluorescein = 332.31
+PEG = 3400
+Ad = 136.4
+MW = fluorescein + PEG +Ad # g/mol or mg/mmol
+drug/MW # M_l in mmol
+```
+```{r}
+# Estimation of C_T
+Wg = 10 # mg
+bcd = 1135 # mg/mmol
+gel_mM = Wg/bcd
+```
+
 ```{r}
 affinity <- function(t, state , parms, ...){
 

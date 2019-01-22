@@ -5,26 +5,156 @@ output: html_notebook
 ---
 
 # Problem
-I am trying to model a diffusion-reaction process from a paper by Fu et.al[link]
-The process is used to simulate the release of a molecule out of a thin cylindrical
-polymer slab. Within the polymer the molecule can either diffuse or react reversibly
-with a host. The process is solved by employing to approximate the transport. The
-goal is to understand the amount of (1)bound and (2)free drug within the polymer matrix at any given time. Most importantly, the modeling is used to determine the 
-cumulative release process out of the polymer. The paper implements the solution
-for the model in matlab and I would like to translate this approach to R using 
-deSolve. I am having the following problems
-(1) Lack of mass conservation that I believe cannot be attributed to numerical errors
-(2) 
 
-The model equations are briefly presented 
+I am trying to model a diffusion-reaction process based on a paper by Fu et.al 
+but I seem not to demonstrate mass is conserved for the system as a test for my implementation.
 
+The paper predicts the release of a small molecule out of the top and bottom faces of of a 
+thin cylindrical polymer with no wall transport. Within the polymer the molecule 
+can either diffuse or it can react reversibly with a host. The resulting system of 
+ode is solved with the method of lines. Since cylinders are symmetricals 
+
+My goal is to understand the amount of (1) bound drug and (2) free drug within the 
+polymer matrix at any given time. Most importantly, the modeling is used to simulate the 
+cumulative release process out of the polymer based on the paraemters. The paper 
+implements the solution for the system of equations in matlab and I would like to 
+translate this approach to R using deSolve. I am having the following problems
+
+I wanted help answering
+(1) if the code below seems like a reasonable implementation of the model
+in deSolve
+(2) Do you have any ideas why I may be experiencing a lack of mass conservation in the system? Wrong calculation or logic?
+(3) Any general suggestions or feedback is always appreciate
+
+# The ode function
 ```{r}
-plot(cars)
+affinity <- function(t, state , parms, ...){
+
+
+# Extracting values passed onto the function through the state argument
+  LIGAND     <- state[1:N]
+  COMPLEX    <- state[(N+1):(2*N)]
+  RELEASE    <- state[2*N+1]
+
+# Initializing the derivatives vectors
+  dLIGAND    <- rep(0, times = N)
+  dCOMPLEX   <- rep(0, times = N)
+  dRELEASE   <- 0
+
+  
+# Method of Lines  
+Rb           <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX
+
+# Calculating the rate of change of the state variables
+
+## This layer represents no transport in the bottom face 
+dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delz^2) - Rb[1]
+## This layer is the polymer to solution interface
+dLIGAND[N-1] <- p2 * (-2*LIGAND[N-1] + LIGAND[N-2]) / (delz^2) - Rb[N-1]
+## These are the calculations for the layers in between top and center
+for(i in 2:(N-2)){
+dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2*LIGAND[i] + LIGAND[i-1]) / (delz^2) - Rb[i]
+}
+
+dCOMPLEX     <- Rb
+
+dRELEASE     <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz)
+
+
+dudt <- c(dLIGAND, dCOMPLEX, dRELEASE)
+
+ncall <<- ncall+1 
+
+return(list(c(dudt))) 
+             
+  }
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+# The parameters and state variables
+```{r}
+
+# Parameters
+N   =    50.0         # Number of boxes 
+M_l =     0.000426    # Initial drug in gel  in millimoles.
+k2  =    36.9         # h^-1
+k1  = 11206.53        # h/M
+V_h =     0.00785     # mL
+K   = k1/(1000*k2)    # mM^-1
+C_o = M_l/V_h         # Loading concentration mM
+C_T = 0.008810573/V_h # 0.1178505 mM
+C_c = 0.000001*C_T    # Free cyclodextrin pockets
+
+L_eq = ((C_o) / (1 + K * C_c))               # Ligand Equilibrium
+complex_eq = (C_o - ((C_o) / (1 + K * C_c))) # 
+
+delz = 1/N # dimensionless
+
+# Dimensionless parameters
+p1 = k1 * C_o / k2
+p2 = 0.933       # From Paper
+p3 = C_T/C_o
+
+LIGAND <- rep(L_eq/(C_o*(N-1)), times = N)
+LIGAND[N] <- 0
+
+COMPLEX <- rep(complex_eq/(C_o*N), times = N)
+
+RELEASE <- 0
+
+state <- c(LIGAND = LIGAND,
+           COMPLEX = COMPLEX,
+           RELEASE = RELEASE)
+
+```
+
+# Solving the equation
+```{r}
+library(deSolve)
+ncall <- 0
+times <- seq(0, 350 * k2, by = 1)
+out <- ode(func = affinity,
+           times = times, 
+           y = state)
+```
+
+# Plotting
+
+```{r}
+library(tidyverse)
+
+# Turning the desolve object to a tidy dataframe
+tidy_out <- as.data.frame(out) %>% 
+  select(-RELEASE) %>%
+  gather(., key = "species", value = "concentration", -time) %>%
+  separate(col = species, 
+           into = c("species", "z"), 
+           sep = "(?<=[:alpha:])(?=[:digit:])") %>%
+  mutate(z = as.numeric(z)) %>%
+  mutate(time = time/k2) # time in hrs
+
+# Grabbing the Release variable. I expect it to go up
+tidy_release_media <- out %>%
+  as.data.frame() %>%
+  select(time, RELEASE) %>%
+  mutate(time = time / k2) 
+  
+# Grouping by time to get a sum of all ligand inside the polymer through time. I expect it to go down
+tidy_release_polymer <- tidy_out %>%
+  filter(species %in% c("LIGAND", "COMPLEX")) %>%
+  group_by(time) %>% 
+  summarise(concentration = sum(concentration))
+
+# When I sum both I expect it to be a flat line due to the principle of mass conservation
+tidy_release_polymer %>%
+  inner_join(tidy_release_media, by = "time") %>%
+  rename(release_polymer = concentration,
+         release_media = RELEASE) %>%
+  mutate(mass_conservation = release_polymer + release_media) %>%
+  ggplot(aes(x = time, y = mass_conservation))+
+  geom_point()
+
+```
+
 
