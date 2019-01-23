@@ -5,3 +5,188 @@ date: "1/23/2019"
 output: html_document
 ---
 
+
+# Problem
+
+I am trying to model a diffusion-reaction transport process based on a paper by Fu et.al
+[](https://link.springer.com/article/10.1007%2Fs10439-011-0336-z)
+but fail to demonstrate mass is conserved for the system as a test of my implementation.
+
+The paper simulates the release of a small molecule out of the top and bottom faces of a 
+thin cylindrical polymer with no wall transport. Within the polymer cylinder, 
+the molecule drug can either diffuse (LIGAND) or it can react reversibly  
+with a non-diffusing host (COMPLEX). The resulting system of ode is solved with the method 
+of lines. Since cylinders are symmetricals the system of equations is simplified 
+to have no release from the bottom face and transport occurs only through the 
+top face.
+
+The model is used to simulate the cumulative release process out of the polymer cylinder. 
+The paper by Fu implements the solution in matlab using ode15s and I would like to 
+translate this approach to R using deSolve. I wanted to ask for your help answering
+the following questions:
+
+(1) Does the code below seems like a reasonable implementation of the model
+in deSolve?
+(2) Do you have any ideas why I may be experiencing a lack of mass conservation 
+in the system? Wrong code, wrong implementation or other reason?
+
+Any general suggestions or feedback is always appreciated. Thank you.
+
+# The ode function
+```{r}
+affinity <- function(t, state , parms, ...){
+
+
+# Extracting values passed onto the function through the state argument
+  LIGAND     <- state[1:N]
+  COMPLEX    <- state[(N+1):(2*N)]
+  RELEASE    <- state[2*N+1]
+
+# Initializing the derivatives vectors
+  dLIGAND    <- rep(0, times = N)
+  dCOMPLEX   <- rep(0, times = N)
+  dRELEASE   <- 0
+
+  
+# Method of Lines  
+  Rb         <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX
+
+# Calculating the rate of change of the state variables
+
+## This layer represents no transport in the bottom face 
+  
+  dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delz^2) - Rb[1]
+  
+## This layer represents the polymer to solution interface
+  
+  dLIGAND[N-1] <- p2 * (-2*LIGAND[N-1] + LIGAND[N-2]) / (delz^2) - Rb[N-1]
+  
+## These are the calculations for the layers in between top and center
+  
+for(i in 2:(N-2)){
+  dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2*LIGAND[i] + LIGAND[i-1]) / (delz^2) - Rb[i]
+}
+  
+## Change in bound drug through the polymer cylinder
+  dCOMPLEX     <- Rb
+
+  dRELEASE     <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz)
+
+
+  dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
+
+ncall <<- ncall+1 
+
+return(list(c(dudt))) 
+             
+  }
+```
+
+
+
+# The parameters and state variables
+```{r}
+
+# Parameters
+
+## Assigned
+
+time =   350.0         # Length of simulation in hrs
+
+M_l  =     0.000426    # Initial drug in cylinder in millimoles.
+V_h  =     0.00785     # Volume of polymer cylinder mL
+
+k2   =    36.9         # Drug decoupling rate from host in h^-1
+k1   =    11.20653     # Drug coupling rate to host in h/mM
+K    =   k1 / k2       # Binding strength between drug and host in mM^-1
+
+N    =    50.0         # Number of boxes 
+delz =    1 / N        # Dimensionless discretization of the cylinder vertical coordinates
+
+
+## Estimated parameters
+
+C_o = M_l / V_h         # Initial total drug concentration inside of the polymer in mM
+C_T = 0.008810573 / V_h # Density of host inside polymer cylinder in mM (*Bound to polymer, constant through time)
+C_c = 0.000001 * C_T    # Fraction of hosts without drug
+
+## Equilibrium concentrations
+
+ligand_eq  =        (C_o) / (1 + K * C_c) # Drug concentration not bound to host at time = 0
+complex_eq = C_o -  (C_o) / (1 + K * C_c) # Drug concentration bound to host at time = 0 
+
+## Dimensionless parameters obtained from paper
+
+p1           = k1 * C_o / k2
+p2           = 0.933            
+p3           = C_T / C_o
+
+ligand_init  =  ligand_eq / C_o  # Free drug 
+complex_init = complex_eq / C_o  # 
+tau          =       time * k2   # Dimensionless time
+
+# State variables 
+
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # free drug divided 49 layers di
+
+COMPLEX   <- rep((complex_init / N), times = N)
+
+RELEASE   <- 0                                              # Initial condition
+
+state     <- c(LIGAND = LIGAND,
+               COMPLEX = COMPLEX,
+               RELEASE = RELEASE)
+
+```
+
+# Solving the equation
+```{r}
+library(deSolve)
+ncall <- 0
+
+times <- seq(0, tau, by = 1)
+desolve_output <- ode(func = affinity, 
+                      times = times, 
+                      y = state)
+```
+
+# Plotting
+
+```{r}
+library(tidyverse)
+
+
+# At each time sum the concentration of free drug (ligand) and bound drug (complex) within the 
+# polymer to calculate the drug depletion rate. I expect this to go down to 0.
+
+tidy_release_polymer  <- as.data.frame(desolve_output) %>% 
+  select(-RELEASE) %>%
+  gather(., key = "species", value = "concentration", -time) %>%
+  separate(col = species, 
+           into = c("species", "z"), 
+           sep = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the column names from the vertical coordinates of the cylinder
+  mutate(z = as.numeric(z)) %>%
+  mutate(time = time/k2) %>% # Reverting back time from dimensionless to hrs
+  filter(species %in% c("LIGAND", "COMPLEX")) %>% # 
+  group_by(time) %>% 
+  summarise(drug_in_polymer = sum(concentration)) # Calculate the sum of free ligand and bound
+
+# Grabbing the RELEASE variable. I expect it to go up to 1
+
+tidy_release_media <- desolve_output %>%
+  as.data.frame() %>%
+  select(time, RELEASE) %>%
+  mutate(time = time / k2) %>%
+  rename(drug_in_media = RELEASE)
+  
+# When I sum both the drug remaining in the polymer and the drug entering the solution
+# I expect a flat line around 1 (+/- numerical error) due to the principle 
+# of mass conservation.However, I obtain a depletion curve.
+
+tidy_release_polymer %>%
+  inner_join(tidy_release_media, by = "time") %>%
+  mutate(mass_conservation = drug_in_polymer + drug_in_media) %>%
+  ggplot(aes(x = time, y = mass_conservation)) +
+  geom_point()
+
+```
