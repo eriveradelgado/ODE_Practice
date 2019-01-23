@@ -13,13 +13,13 @@ but fail to demonstrate mass is conserved for the system as a test of my impleme
 
 The paper simulates the release of a small molecule out of the top and bottom faces of a 
 thin cylindrical polymer with no wall transport. Within the polymer cylinder, 
-the molecule can either diffuse(LIGAND) or it can react reversibly (COMPLEX) 
-with a non-diffusing host. The resulting system of ode is solved with the method 
+the molecule drug can either diffuse (LIGAND) or it can react reversibly  
+with a non-diffusing host (COMPLEX). The resulting system of ode is solved with the method 
 of lines. Since cylinders are symmetricals the system of equations is simplified 
 to have no release from the bottom face and transport occurs only through the 
 top face.
 
-The model is used to simulate the cumulative release process out of the polymer. 
+The model is used to simulate the cumulative release process out of the polymer cylinder. 
 The paper by Fu implements the solution in matlab using ode15s and I would like to 
 translate this approach to R using deSolve. I wanted to ask for your help answering
 the following questions:
@@ -101,8 +101,7 @@ K    =   k1 / k2       # Binding strength between drug and host in mM^-1
 
 N    =    50.0         # Number of boxes 
 delz =    1 / N        # Dimensionless discretization of the cylinder vertical coordinates
-i    =     1:N         # Vector length of boxes
-z    =    i * delz     # 
+
 
 ## Estimated parameters
 

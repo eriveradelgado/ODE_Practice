@@ -1,0 +1,7 @@
+---
+title: "Simulation of affinity-based drug delivery"
+author: "Edgardo Rivera-Delgado"
+date: "1/23/2019"
+output: html_document
+---
+
