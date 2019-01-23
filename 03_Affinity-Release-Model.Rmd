@@ -85,6 +85,7 @@ Ad = 136.4
 MW = fluorescein + PEG +Ad # g/mol or mg/mmol
 drug/MW # M_l in mmol
 ```
+
 ```{r}
 # Estimation of C_T
 Wg = 10 # mg
@@ -112,7 +113,7 @@ p3 = C_T/C_o
   dCOMPLEX <- rep(0, times = N)
   dRELEASE <- 0
 
-Rb           <- p1*LIGAND*(p3 - COMPLEX) - COMPLEX
+Rb           <- p1 * LIGAND*(p3 - COMPLEX) - COMPLEX
 # Calculating the rate of change of the state variables
 dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1])/(delz^2)- Rb[1]
 
