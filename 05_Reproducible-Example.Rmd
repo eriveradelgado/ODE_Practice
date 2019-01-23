@@ -48,19 +48,25 @@ affinity <- function(t, state , parms, ...){
 
   
 # Method of Lines  
-  Rb           <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX
+  Rb         <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX
 
 # Calculating the rate of change of the state variables
 
 ## This layer represents no transport in the bottom face 
+  
   dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delz^2) - Rb[1]
-## This layer is the polymer to solution interface
+  
+## This layer represents the polymer to solution interface
+  
   dLIGAND[N-1] <- p2 * (-2*LIGAND[N-1] + LIGAND[N-2]) / (delz^2) - Rb[N-1]
+  
 ## These are the calculations for the layers in between top and center
+  
 for(i in 2:(N-2)){
   dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2*LIGAND[i] + LIGAND[i-1]) / (delz^2) - Rb[i]
 }
-
+  
+## Change in bound drug through the polymer cylinder
   dCOMPLEX     <- Rb
 
   dRELEASE     <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz)
@@ -102,7 +108,7 @@ z    =    i * delz     #
 
 C_o = M_l / V_h         # Initial total drug concentration inside of the polymer in mM
 C_T = 0.008810573 / V_h # Density of host inside polymer cylinder in mM (*Bound to polymer, constant through time)
-C_c = 0.000001*C_T      # Fraction of hosts without drug
+C_c = 0.000001 * C_T    # Fraction of hosts without drug
 
 ## Equilibrium concentrations
 
@@ -121,7 +127,7 @@ tau          =       time * k2   # Dimensionless time
 
 # State variables 
 
-LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  #
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # free drug divided 49 layers di
 
 COMPLEX   <- rep((complex_init / N), times = N)
 
@@ -149,9 +155,8 @@ desolve_output <- ode(func = affinity,
 ```{r}
 library(tidyverse)
 
-# Turning the desolve object to a tidy dataframe
 
-# At each time sum the concentration of free ligand and bound complex within the 
+# At each time sum the concentration of free drug (ligand) and bound drug (complex) within the 
 # polymer to calculate the drug depletion rate. I expect this to go down to 0.
 
 tidy_release_polymer  <- as.data.frame(desolve_output) %>% 
@@ -163,7 +168,7 @@ tidy_release_polymer  <- as.data.frame(desolve_output) %>%
   mutate(z = as.numeric(z)) %>%
   mutate(time = time/k2) %>% # Reverting back time from dimensionless to hrs
   filter(species %in% c("LIGAND", "COMPLEX")) %>% # 
-  group_by(time) %>% # For each time
+  group_by(time) %>% 
   summarise(drug_in_polymer = sum(concentration)) # Calculate the sum of free ligand and bound
 
 # Grabbing the RELEASE variable. I expect it to go up to 1
