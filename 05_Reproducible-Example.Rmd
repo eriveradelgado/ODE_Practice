@@ -32,6 +32,9 @@ in deSolve?
 (2) Do you have any ideas why I may be experiencing a lack of mass conservation 
 in the system? Wrong code, wrong implementation or other reason?
 
+Reproducible example location
+[github repo](https://github.com/eriveradelgado/ODE_Practice/blob/master/05_Reproducible-Example.Rmd)
+[session info](https://github.com/eriveradelgado/ODE_Practice/blob/master/2019-01-24_session-info.Rmd)
 ---
 Any general suggestions or feedback is always appreciated. I wanted to be as 
 clear as possible so ended up with a verbose post. In the future, I can reduce 
