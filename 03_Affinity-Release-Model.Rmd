@@ -350,13 +350,13 @@ tidy_release_polymer %>%
 
 
 # Possible causes for the lack of mass conservation
-  + (1/N)*2 
-    + A fractional volume (1/N) of the polymer is sampled and transport assumed to happen through one of the faces(2) but not explicitly stated in the paper. (Done)
+  + N*2 
+    + A fractional volume (1/N) of the polymer is sampled and transport assumed to happen through one of the faces(2) but not explicitly stated in the paper.
+    + Possible but I want a better reasoning to apply this correction
     + In such case the reader should be compentent enough to apply it themselves.
   + RR is the actual release through the polymer face and scaling the concentration to the volume of the gel is a flawed reasoning. (Remove the N and N-1 scaling and pass onto another file)
     + Unlikely $C_o = \frac {M_L}{V_h} = C_L_eq + C_L-C_Eq$ and vulic also normalizes total host and ligand concentration to 1
   + The RR is expressed as a first derivative when it should be a second dervative.  
-    + This could mean that Fu's paper is incorrect in its approximation as a first derivative. (Ask Saidel or Fu) 
   + Alteratively it could be a problem of numerical approximation. (Email the modeling team) 
     + Explore other solver methods(ode23[x], ode45[!], daspk[!], etc) (Write onto another file)
     + The approximation may just be unstable at the very beginning of the simulation 
@@ -364,7 +364,7 @@ tidy_release_polymer %>%
     + Complex may be escaping but not ligand
       + Rewrite the function without Rb
     + In the discretization matlab starts at 0 and R starts at index 1 which makes it possible that I am incorrectly translating the system of equations between languages.(Read matlab documentation for ode15s)
-    + Alternatively, I could be including an extra index for i = 1 and i = 50 (In Progress)
+    + Alternatively, I could be including an extra index for i = 1 and i = 50 
     + Implement in ode.1D (After previous point is finished)
     + Like Alison, remove RR from the ode and solve separately.
     
