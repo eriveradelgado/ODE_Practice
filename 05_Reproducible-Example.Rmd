@@ -39,9 +39,9 @@ affinity <- function(t, state , parms, ...){
 
 # LIGAND + HOST <-> COMPLEX (LIGAND:HOST)
   
-# The LIGAND is free to diffuse and the host is part of the polymer matrix. 
-# In the COMPLEX form the LIGAND is said to be bound
-# In the 
+# The LIGAND is free to diffuse. The HOST remains constant as it is part of the polymer matrix. 
+# The LIGAND when inside the host forms the COMPLEX and is said to be bound
+
 
 # Extracting values passed onto the function through the state argument
   LIGAND     <- state[1:N]
@@ -73,18 +73,18 @@ for(i in 2:(N-2)){
   dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
 }
   
-## Change in bound drug through the polymer cylinder
+## Change in COMPLEX through the polymer cylinder
   
   dCOMPLEX     <- Rb
 
+## LIGAND exiting into the media
   dRELEASE     <- -(1/2) * p2 * (LIGAND[N] - LIGAND[(N-1)]) / (delta) 
-
 
   dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
 
 ncall <<- ncall + 1 
 
-return(list(c(dudt))) 
+return(list(dudt)) 
              
   }
 ```
@@ -101,11 +101,11 @@ return(list(c(dudt)))
 time  =   350.0         # Length of simulation in hrs
 
 M_l   =     0.000426    # Initial drug in cylinder in millimoles.
-V_h   =     0.0785     # Volume of polymer cylinder mL
+V_h   =     0.0785      # Volume of polymer cylinder mL
 
 k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
 k1    =    11.20653     # LIGAND coupling rate to host in 1/mM*hrs
-K     =   k1 / k2       # Binding strength between drug and host in mM^-1
+K     =    1000 * k1 / k2      # Binding strength between drug and host in mM^-1
 
 N     =    50.0         # Number of boxes 
 delta =    1 / N        # Spacing
@@ -114,8 +114,8 @@ delta =    1 / N        # Spacing
 ## Estimated parameters
 
 C_o = M_l / V_h         # Initial total drug concentration inside of the polymer in mM
-C_T = 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (*Bound to polymer, constant through time)
-C_c = 0.001 * C_T    # Fraction of hosts without bound drug
+C_T = 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (constant through time)
+C_c = 0.0000001 * C_T       # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
 
@@ -128,15 +128,15 @@ p1           = k1 * C_o / k2
 p2           = 0.933            
 p3           = C_T / C_o
 
-ligand_init  =  ligand_eq / C_o  # Dimensionless free drug
-complex_init = complex_eq / C_o  # Dimensionless bound drug
+ligand_init  =  ligand_eq / C_o  # Dimensionless free LIGAND
+complex_init = complex_eq / C_o  # Dimensionless complex
 tau          =       time * k2   # Dimensionless time
 
 # State variables 
 
-LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # Free drug divided into the total number of layers, layer in direct contact to media is set to 0
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # Free LIGAND divided into the total number of layers, layer in direct contact to media is set to 0
 
-COMPLEX   <- rep((complex_init / N), times = N)             # Bound drug divided into the total number of layers
+COMPLEX   <- rep((complex_init / N), times = N)             # Complex divided into the total number of layers
 
 RELEASE   <- 0                                              # Initial condition
 
@@ -163,8 +163,8 @@ desolve_output <- ode(func = affinity,
 library(tidyverse)
 
 
-# At each time sum the concentration of free drug (ligand) and bound drug (complex) within the 
-# polymer to calculate the drug depletion rate. I expect this to go down to 0.
+# At each time sum the concentration of free LIGAND and bound LIGAND (complex) within the 
+# polymer to calculate the LIGAND depletion rate. I expect this to go down to 0.
 
 tidy_release_polymer  <- as.data.frame(desolve_output) %>% 
   select(-RELEASE) %>%
@@ -176,7 +176,7 @@ tidy_release_polymer  <- as.data.frame(desolve_output) %>%
   mutate(time = time / k2) %>% # Reverting back time from dimensionless to hrs
   filter(species %in% c("LIGAND", "COMPLEX")) %>% # 
   group_by(time) %>% 
-  summarise(drug_in_polymer = sum(concentration)) # Calculate the sum of free ligand and bound
+  summarise(ligand_in_polymer = sum(concentration)) # Calculate the sum of free ligand and bound LIGAND(complex)
 
 # Grabbing the RELEASE variable. I expect it to go up to 1
 
@@ -184,7 +184,7 @@ tidy_release_media <- desolve_output %>%
   as.data.frame() %>%
   select(time, RELEASE) %>%
   mutate(time = time / k2) %>%
-  rename(drug_in_media = RELEASE) # Possibly multiply by 2*delta. But why?
+  rename(ligand_in_media = RELEASE) 
   
 # When I sum both the drug remaining in the polymer and the drug entering the solution
 # I expect a flat line around 1 (+/- numerical error) due to the principle 
@@ -192,7 +192,7 @@ tidy_release_media <- desolve_output %>%
 
 tidy_release_polymer %>%
   inner_join(tidy_release_media, by = "time") %>%
-  mutate(mass_conservation = drug_in_polymer + drug_in_media) %>%
+  mutate(mass_conservation = ligand_in_polymer + ligand_in_media) %>%
   ggplot(aes(x = time, y = mass_conservation)) +
   geom_point()
 
