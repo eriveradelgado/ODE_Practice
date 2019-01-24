@@ -8,6 +8,7 @@ date: '2019-01-09'
 ---
 
 # Problem
+Hi dynamic modeling group,
 
 I am trying to model a diffusion-reaction transport process based on a paper by 
 [Fu et.al](https://link.springer.com/article/10.1007%2Fs10439-011-0336-z)
