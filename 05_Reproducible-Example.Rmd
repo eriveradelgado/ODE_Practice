@@ -1,5 +1,6 @@
 ---
-title: "Reproducible example for syg dynamic modeling group"
+title: "Diffusion-reaction model out of polymer cylinder"
+author: "Edgardo Rivera-Delgado"
 output:
   html_document:
     df_print: paged
@@ -8,7 +9,8 @@ date: '2019-01-09'
 
 # Problem
 
-I am trying to model a diffusion-reaction transport process based on a paper by Fu et.al 
+I am trying to model a diffusion-reaction transport process based on a paper by 
+[Fu et.al](https://link.springer.com/article/10.1007%2Fs10439-011-0336-z)
 but fail to demonstrate mass is conserved for the system as a test of my implementation.
 
 The paper simulates the release of a small molecule out of the top and bottom faces of a 
@@ -35,6 +37,11 @@ Any general suggestions or feedback is always appreciated. Thank you.
 ```{r}
 affinity <- function(t, state , parms, ...){
 
+# LIGAND + HOST <-> COMPLEX (LIGAND:HOST)
+  
+# The LIGAND is free to diffuse and the host is part of the polymer matrix. 
+# In the COMPLEX form the LIGAND is said to be bound
+# In the 
 
 # Extracting values passed onto the function through the state argument
   LIGAND     <- state[1:N]
@@ -54,27 +61,28 @@ affinity <- function(t, state , parms, ...){
 
 ## This layer represents no transport in the bottom face 
   
-  dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delz^2) - Rb[1]
+  dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delta^2) - Rb[1]
   
 ## This layer represents the polymer to solution interface
   
-  dLIGAND[N-1] <- p2 * (-2*LIGAND[N-1] + LIGAND[N-2]) / (delz^2) - Rb[N-1]
+  dLIGAND[N-1] <- p2 * (-2 * LIGAND[N-1] + LIGAND[N-2]) / (delta^2) - Rb[N-1]
   
 ## These are the calculations for the layers in between top and center
   
 for(i in 2:(N-2)){
-  dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2*LIGAND[i] + LIGAND[i-1]) / (delz^2) - Rb[i]
+  dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
 }
   
 ## Change in bound drug through the polymer cylinder
+  
   dCOMPLEX     <- Rb
 
-  dRELEASE     <- -(1/2)*p2*(LIGAND[N]-LIGAND[(N-1)])/(delz)
+  dRELEASE     <- -(1/2) * p2 * (LIGAND[N] - LIGAND[(N-1)]) / (delta) # Possibly multiply by 2*delta. But why?
 
 
   dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
 
-ncall <<- ncall+1 
+ncall <<- ncall + 1 
 
 return(list(c(dudt))) 
              
@@ -90,29 +98,29 @@ return(list(c(dudt)))
 
 ## Assigned
 
-time =   350.0         # Length of simulation in hrs
+time  =   350.0         # Length of simulation in hrs
 
-M_l  =     0.000426    # Initial drug in cylinder in millimoles.
-V_h  =     0.00785     # Volume of polymer cylinder mL
+M_l   =     0.000426    # Initial drug in cylinder in millimoles.
+V_h   =     0.00785     # Volume of polymer cylinder mL
 
-k2   =    36.9         # Drug decoupling rate from host in h^-1
-k1   =    11.20653     # Drug coupling rate to host in h/mM
-K    =   k1 / k2       # Binding strength between drug and host in mM^-1
+k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
+k1    =    11.20653     # LIGAND coupling rate to host in 1/mM*hrs
+K     =   k1 / k2       # Binding strength between drug and host in mM^-1
 
-N    =    50.0         # Number of boxes 
-delz =    1 / N        # Dimensionless discretization of the cylinder vertical coordinates
+N     =    50.0         # Number of boxes 
+delta =    1 / N        # Spacing
 
 
 ## Estimated parameters
 
 C_o = M_l / V_h         # Initial total drug concentration inside of the polymer in mM
-C_T = 0.008810573 / V_h # Density of host inside polymer cylinder in mM (*Bound to polymer, constant through time)
+C_T = 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (*Bound to polymer, constant through time)
 C_c = 0.000001 * C_T    # Fraction of hosts without drug
 
 ## Equilibrium concentrations
 
-ligand_eq  =        (C_o) / (1 + K * C_c) # Drug concentration not bound to host at time = 0
-complex_eq = C_o -  (C_o) / (1 + K * C_c) # Drug concentration bound to host at time = 0 
+ligand_eq  =        (C_o) / (1 + K * C_c) # Drug concentration not bound to host at time = 0 in mM
+complex_eq = C_o -  (C_o) / (1 + K * C_c) # Drug concentration bound to host at time = 0  in mM
 
 ## Dimensionless parameters obtained from paper
 
@@ -120,15 +128,15 @@ p1           = k1 * C_o / k2
 p2           = 0.933            
 p3           = C_T / C_o
 
-ligand_init  =  ligand_eq / C_o  # Free drug 
-complex_init = complex_eq / C_o  # 
+ligand_init  =  ligand_eq / C_o  # Dimensionless free drug
+complex_init = complex_eq / C_o  # Dimensionless bound drug
 tau          =       time * k2   # Dimensionless time
 
 # State variables 
 
-LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # free drug divided 49 layers di
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # Free drug divided into the total number of layers, layer in direct contact to media is set to 0
 
-COMPLEX   <- rep((complex_init / N), times = N)
+COMPLEX   <- rep((complex_init / N), times = N)             # Bound drug divided into the total number of layers
 
 RELEASE   <- 0                                              # Initial condition
 
@@ -176,7 +184,7 @@ tidy_release_media <- desolve_output %>%
   as.data.frame() %>%
   select(time, RELEASE) %>%
   mutate(time = time / k2) %>%
-  rename(drug_in_media = RELEASE)
+  rename(drug_in_media = RELEASE) # Possibly multiply by 2*delta. But why?
   
 # When I sum both the drug remaining in the polymer and the drug entering the solution
 # I expect a flat line around 1 (+/- numerical error) due to the principle 
