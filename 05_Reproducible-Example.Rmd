@@ -17,13 +17,13 @@ implementation.
 The paper simulates the release of a small molecule out of the top and bottom 
 faces of a thin cylindrical polymer with no wall transport. Within the polymer
 cylinder, the molecule drug can either diffuse (LIGAND) or it can react
-reversibly  with a non-diffusing host (COMPLEX). The resulting system of ode is
+reversibly  with an immobile host (COMPLEX). The resulting system of ode is
 solved with the method of lines. Since cylinders are symmetricals the system of 
 equations is simplified to have no release from the bottom face and transport 
 occurs only through the top face.
 
 The model is used to simulate the cumulative release process of a drug out of 
-the polymer cylinder into a liquid media. The paper by Fu implements the 
+the polymer cylinder into liquid media. The paper by Fu implements the 
 solution in matlab using ode15s and I would like to translate this approach to R 
 using deSolve. I wanted to ask for your help answering the following questions:
 
@@ -55,15 +55,15 @@ affinity <- function(t, state , parms, ...){
   RELEASE    <- state[2*N+1]
 
 # Initializing the derivatives vectors
-  # dLIGAND    <- rep(0, times = N)
-  # dCOMPLEX   <- rep(0, times = N)
-  # dRELEASE   <- 0
-
-  
+  dLIGAND    <- rep(0, times = N)
+  dCOMPLEX   <- rep(0, times = N)
+  dRELEASE   <- 0
+  Rb         <- rep(0, times = N)
+   
 # Method of Lines  
 ## Binding process to host
   for(i in 1:(N-1)){
-  Rb[i]         <- p1 * LIGAND[i] * (p3 - COMPLEX[i]) - COMPLEX[i] 
+  Rb[i]        <- p1 * LIGAND[i] * (p3 - COMPLEX[i]) - COMPLEX[i] 
 }
 ## Diffusion process of the ligand 
   
@@ -76,7 +76,7 @@ affinity <- function(t, state , parms, ...){
 ## These are the calculations for the layers in between top and center
   
 for(i in 2:(N-2)){
-  dLIGAND[i] <- 
+  dLIGAND[i]   <- 
     p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
 }
   
@@ -89,7 +89,7 @@ for(i in 2:(N-2)){
 
   dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
 
-ncall <<- ncall + 1 
+  ncall <<- ncall + 1 
 
 return(list(dudt)) 
              
@@ -101,7 +101,7 @@ return(list(dudt))
 
 # Parameters
 
-## Assigned
+## Parameters
 
 time  =   350.0         # Length of simulation in hrs
 
@@ -109,20 +109,18 @@ M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles.
 V_h   =     0.0785      # Volume of polymer cylinder mL
 
 k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
-k1    =    11.2     # LIGAND coupling rate to host in 1/mM*hrs
+k1    =    11.2         # LIGAND coupling rate to host in 1/mM*hrs
 K     =   k1 / k2       # Binding strength between drug and host in mM^-1
 
 N     =    50.0         # Number of boxes 
 delta =    1 / N        # Spacing
 
-
-## Estimated parameters
-
-C_o = M_l / V_h                   # LIGAND in polymer cylinder in mM
-C_T = 0.00881 / V_h           # Host concentration in polymer cylinder in mM 
-C_c = 0.00001 * C_T               # Fraction of hosts without bound drug
+C_o   = M_l / V_h       # LIGAND in polymer cylinder in mM
+C_T   = 0.00881 / V_h   # Host concentration in polymer cylinder in mM 
+C_c   = 0.00001 * C_T   # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
+
 ### LIGAND  + COMPLEX (LIGAND:host) = C_o = Total LIGAND in polymer cylinder
 
 ligand_eq  =        (C_o) / (1 + K * C_c) # Free LIGAND at time = 0 in mM
@@ -157,17 +155,21 @@ state     <- c(LIGAND = LIGAND,
                COMPLEX = COMPLEX,
                RELEASE = RELEASE)
 
-```
-
-# Solving the equation
-```{r}
-library(deSolve)
-ncall <- 0
+parms <- c(p1, p2, p3)
 
 times <- seq(0, tau, by = 1)
-desolve_output <- ode(func = affinity, 
+
+ncall <- 0
+```
+
+# Solving the system
+```{r}
+library(deSolve)
+
+desolve_output <- ode(y = state,
                       times = times, 
-                      y = state)
+                      func = affinity, 
+                      parms = parms)
 ```
 
 # Plotting
@@ -209,7 +211,7 @@ tidy_release_media <- desolve_output %>%
 
 tidy_release_polymer %>%
   inner_join(tidy_release_media, by = "time") %>%
-  mutate(mass_conservation = ligand_in_polymer + 100 * ligand_in_media) %>%
+  mutate(mass_conservation = ligand_in_polymer + ligand_in_media) %>%
   ggplot(aes(x = time, y = mass_conservation)) +
   geom_point()
 
