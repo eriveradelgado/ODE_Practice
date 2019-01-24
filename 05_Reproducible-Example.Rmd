@@ -11,55 +11,61 @@ date: '2019-01-09'
 
 I am trying to model a diffusion-reaction transport process based on a paper by 
 [Fu et.al](https://link.springer.com/article/10.1007%2Fs10439-011-0336-z)
-but fail to demonstrate mass is conserved for the system as a test of my implementation.
+but fail to demonstrate mass is conserved for the system as a test of my
+implementation.
 
-The paper simulates the release of a small molecule out of the top and bottom faces of a 
-thin cylindrical polymer with no wall transport. Within the polymer cylinder, 
-the molecule drug can either diffuse (LIGAND) or it can react reversibly  
-with a non-diffusing host (COMPLEX). The resulting system of ode is solved with the method 
-of lines. Since cylinders are symmetricals the system of equations is simplified 
-to have no release from the bottom face and transport occurs only through the 
-top face.
+The paper simulates the release of a small molecule out of the top and bottom 
+faces of a thin cylindrical polymer with no wall transport. Within the polymer
+cylinder, the molecule drug can either diffuse (LIGAND) or it can react
+reversibly  with a non-diffusing host (COMPLEX). The resulting system of ode is
+solved with the method of lines. Since cylinders are symmetricals the system of 
+equations is simplified to have no release from the bottom face and transport 
+occurs only through the top face.
 
-The model is used to simulate the cumulative release process out of the polymer cylinder. 
-The paper by Fu implements the solution in matlab using ode15s and I would like to 
-translate this approach to R using deSolve. I wanted to ask for your help answering
-the following questions:
+The model is used to simulate the cumulative release process of a drug out of 
+the polymercylinder into a liquid media. The paper by Fu implements the 
+solution in matlab using ode15s and I would like to translate this approach to R 
+using deSolve. I wanted to ask for your help answering the following questions:
 
 (1) Does the code below seems like a reasonable implementation of the model
 in deSolve?
 (2) Do you have any ideas why I may be experiencing a lack of mass conservation 
 in the system? Wrong code, wrong implementation or other reason?
 
-Any general suggestions or feedback is always appreciated. Thank you.
+
+---
+Any general suggestions or feedback is always appreciated. I wanted to be as 
+clear as possible so ended up with a verbose post. In the future, I can reduce 
+the length if that's preferred by the list members and/or moderator. Thank you.
 
 # The ode function
 ```{r}
 affinity <- function(t, state , parms, ...){
 
-# LIGAND + HOST <-> COMPLEX (LIGAND:HOST)
+# LIGAND + host <-> COMPLEX (LIGAND:host)
   
-# The LIGAND is free to diffuse. The HOST remains constant as it is part of the polymer matrix. 
-# The LIGAND when inside the host forms the COMPLEX and is said to be bound
+# The LIGAND is free to diffuse along the vertical length (N) of the cylinder. 
+# The host remains constant as it is part of the polymer matrix. The LIGAND can 
+# reversibly bind to the the host to form a COMPLEX. Only the free LIGAND 
+# diffuses into the liquid media and is called the RELEASE.
 
 
-# Extracting values passed onto the function through the state argument
+# Extracting values passed into the function through the state argument
   LIGAND     <- state[1:N]
   COMPLEX    <- state[(N+1):(2*N)]
   RELEASE    <- state[2*N+1]
 
 # Initializing the derivatives vectors
-  dLIGAND    <- rep(0, times = N)
-  dCOMPLEX   <- rep(0, times = N)
-  dRELEASE   <- 0
+  # dLIGAND    <- rep(0, times = N)
+  # dCOMPLEX   <- rep(0, times = N)
+  # dRELEASE   <- 0
 
   
 # Method of Lines  
-  Rb         <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX
+## Binding process to host
+  Rb         <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX 
 
-# Calculating the rate of change of the state variables
-
-## This layer represents no transport in the bottom face 
+## Diffusion process of the ligand 
   
   dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delta^2) - Rb[1]
   
@@ -77,7 +83,7 @@ for(i in 2:(N-2)){
   
   dCOMPLEX     <- Rb
 
-## LIGAND exiting into the media
+## LIGAND exiting into the liquid environment
   dRELEASE     <- -(1/2) * p2 * (LIGAND[N] - LIGAND[(N-1)]) / (delta) 
 
   dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
@@ -113,16 +119,17 @@ delta =    1 / N        # Spacing
 
 ## Estimated parameters
 
-C_o = M_l / V_h                   # Initial drug concentration inside of the polymer in mM
-C_T = 0.008810573 / V_h           # Host concentration inside polymer cylinder in mM 
+C_o = M_l / V_h                   # LIGAND in cylinder in mM
+C_T = 0.008810573 / V_h           # Host concentration in cylinder in mM 
 C_c = 0.00001 * C_T               # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
+### LIGAND  + COMPLEX (LIGAND:host) = C_o
 
 ligand_eq  =        (C_o) / (1 + K * C_c) # Drug concentration not bound to host at time = 0 in mM
 complex_eq = C_o -  (C_o) / (1 + K * C_c) # Drug concentration bound to host at time = 0  in mM
 
-## Dimensionless parameters obtained from paper
+## Dimensionless parameters
 
 p1           = k1 * C_o / k2
 p2           = 0.933            
@@ -134,11 +141,16 @@ tau          =       time * k2   # Dimensionless time
 
 # State variables 
 
-LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  # Free LIGAND divided into the total number of layers, layer in direct contact to media is set to 0
+### Free LIGAND divided into the total number of layers, layer in direct contact 
+### to media is set to 0
 
-COMPLEX   <- rep((complex_init / N), times = N)             # Complex divided into the total number of layers
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  
 
-RELEASE   <- 0                                              # Initial condition
+### COMPLEX divided into the total number of layers
+
+COMPLEX   <- rep((complex_init / N), times = N)   
+
+RELEASE   <- 0  # Initially there's no drug in the liquid environment
 
 state     <- c(LIGAND = LIGAND,
                COMPLEX = COMPLEX,
