@@ -61,5 +61,5 @@ And with initial conditions given by:
 $$M_R = 0, \tau = 0$$
 The model is rendered dimensionless as it follows
 $$ P_1 = \bigg[\frac{K_1*C_0}{K_2}\bigg], P_2 = \bigg[\frac{D}{K_2\delta^2}\bigg], P_3 = \bigg[\frac{C_T}{C_0}\bigg]$$
-$$ Loading = \frac {W_d} {W_g + W_d} $$
+
 
