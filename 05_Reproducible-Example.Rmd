@@ -77,7 +77,7 @@ for(i in 2:(N-2)){
   
   dCOMPLEX     <- Rb
 
-  dRELEASE     <- -(1/2) * p2 * (LIGAND[N] - LIGAND[(N-1)]) / (delta) # Possibly multiply by 2*delta. But why?
+  dRELEASE     <- -(1/2) * p2 * (LIGAND[N] - LIGAND[(N-1)]) / (delta) 
 
 
   dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
@@ -101,7 +101,7 @@ return(list(c(dudt)))
 time  =   350.0         # Length of simulation in hrs
 
 M_l   =     0.000426    # Initial drug in cylinder in millimoles.
-V_h   =     0.00785     # Volume of polymer cylinder mL
+V_h   =     0.0785     # Volume of polymer cylinder mL
 
 k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
 k1    =    11.20653     # LIGAND coupling rate to host in 1/mM*hrs
@@ -115,7 +115,7 @@ delta =    1 / N        # Spacing
 
 C_o = M_l / V_h         # Initial total drug concentration inside of the polymer in mM
 C_T = 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (*Bound to polymer, constant through time)
-C_c = 0.000001 * C_T    # Fraction of hosts without drug
+C_c = 0.001 * C_T    # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
 
@@ -173,7 +173,7 @@ tidy_release_polymer  <- as.data.frame(desolve_output) %>%
            into = c("species", "z"), 
            sep = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the column names from the vertical coordinates of the cylinder
   mutate(z = as.numeric(z)) %>%
-  mutate(time = time/k2) %>% # Reverting back time from dimensionless to hrs
+  mutate(time = time / k2) %>% # Reverting back time from dimensionless to hrs
   filter(species %in% c("LIGAND", "COMPLEX")) %>% # 
   group_by(time) %>% 
   summarise(drug_in_polymer = sum(concentration)) # Calculate the sum of free ligand and bound
