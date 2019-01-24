@@ -96,41 +96,22 @@ return(list(dudt))
 
 # Parameters
 
-## Assigned
-
-time  =   350.0         # Length of simulation in hrs
-
-M_l   =     0.000426    # Initial drug in cylinder in millimoles.
-V_h   =     0.0785      # Volume of polymer cylinder mL
-
-k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
-k1    =    11.20653     # LIGAND coupling rate to host in 1/mM*hrs
-K     =   k1 / k2       # Binding strength between drug and host in mM^-1
-
-N     =    50.0         # Number of boxes 
-delta =    1 / N        # Spacing
-
-
-## Estimated parameters
-
-C_o = M_l / V_h                   # Initial drug concentration inside of the polymer in mM
-C_T = 0.008810573 / V_h           # Host concentration inside polymer cylinder in mM 
-C_c = 0.00001 * C_T               # Fraction of hosts without bound drug
+N     =    50.0 # Number of boxes 
 
 ## Equilibrium concentrations
 
-ligand_eq  =        (C_o) / (1 + K * C_c) # Drug concentration not bound to host at time = 0 in mM
-complex_eq = C_o -  (C_o) / (1 + K * C_c) # Drug concentration bound to host at time = 0  in mM
+ligand_eq  =  0.00542675        # Drug concentration not bound to host at time = 0 in mM
+complex_eq =  1.849776e-09      # Drug concentration bound to host at time = 0  in mM
 
 ## Dimensionless parameters obtained from paper
 
-p1           = k1 * C_o / k2
-p2           = 0.933            
-p3           = C_T / C_o
+p1           =     0.00165
+p2           =     0.93300            
+p3           =    20.6821
 
-ligand_init  =  ligand_eq / C_o  # Dimensionless free LIGAND
-complex_init = complex_eq / C_o  # Dimensionless complex
-tau          =       time * k2   # Dimensionless time
+ligand_init  =     0.9999997     # Dimensionless free LIGAND
+complex_init =     3.408624e-07  # Dimensionless complex
+tau          = 12915             # Dimensionless time
 
 # State variables 
 
