@@ -113,9 +113,9 @@ delta =    1 / N        # Spacing
 
 ## Estimated parameters
 
-C_o = M_l / V_h                   # Initial total drug concentration inside of the polymer in mM
-C_T = 1000000 * 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (constant through time)
-C_c = 0.0000001 * C_T             # Fraction of hosts without bound drug
+C_o = M_l / V_h                   # Initial drug concentration inside of the polymer in mM
+C_T = 0.008810573 / V_h           # Host concentration inside polymer cylinder in mM 
+C_c = 0.00001 * C_T               # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
 
@@ -188,7 +188,7 @@ tidy_release_media <- desolve_output %>%
   
 # When I sum both the drug remaining in the polymer and the drug entering the solution
 # I expect a flat line around 1 (+/- numerical error) due to the principle 
-# of mass conservation.However, I obtain a depletion curve.
+# of mass conservation. However, I obtain a depletion curve.
 
 tidy_release_polymer %>%
   inner_join(tidy_release_media, by = "time") %>%
