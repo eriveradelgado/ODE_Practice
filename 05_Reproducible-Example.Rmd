@@ -76,7 +76,8 @@ affinity <- function(t, state , parms, ...){
 ## These are the calculations for the layers in between top and center
   
 for(i in 2:(N-2)){
-  dLIGAND[i] <- p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
+  dLIGAND[i] <- 
+    p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
 }
   
 ## Change in COMPLEX through the polymer cylinder
