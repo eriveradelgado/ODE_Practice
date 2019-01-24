@@ -23,7 +23,7 @@ equations is simplified to have no release from the bottom face and transport
 occurs only through the top face.
 
 The model is used to simulate the cumulative release process of a drug out of 
-the polymercylinder into a liquid media. The paper by Fu implements the 
+the polymer cylinder into a liquid media. The paper by Fu implements the 
 solution in matlab using ode15s and I would like to translate this approach to R 
 using deSolve. I wanted to ask for your help answering the following questions:
 
@@ -31,7 +31,6 @@ using deSolve. I wanted to ask for your help answering the following questions:
 in deSolve?
 (2) Do you have any ideas why I may be experiencing a lack of mass conservation 
 in the system? Wrong code, wrong implementation or other reason?
-
 
 ---
 Any general suggestions or feedback is always appreciated. I wanted to be as 
@@ -44,10 +43,10 @@ affinity <- function(t, state , parms, ...){
 
 # LIGAND + host <-> COMPLEX (LIGAND:host)
   
-# The LIGAND is free to diffuse along the vertical length (N) of the cylinder. 
-# The host remains constant as it is part of the polymer matrix. The LIGAND can 
-# reversibly bind to the the host to form a COMPLEX. Only the free LIGAND 
-# diffuses into the liquid media and is called the RELEASE.
+# The LIGAND is free to diffuse along the vertical length (N) of the polymer 
+# cylinder. The host remains constant as it is part of the polymer cylinder 
+# matrix. The LIGAND can  reversibly bind to the the host to form a COMPLEX. 
+# Only the free LIGAND diffuses into the liquid media and is called the RELEASE.
 
 
 # Extracting values passed into the function through the state argument
@@ -63,20 +62,21 @@ affinity <- function(t, state , parms, ...){
   
 # Method of Lines  
 ## Binding process to host
-  Rb         <- p1 * LIGAND * (p3 - COMPLEX) - COMPLEX 
-
+  for(i in 1:(N-1)){
+  Rb[i]         <- p1 * LIGAND[i] * (p3 - COMPLEX[i]) - COMPLEX[i] 
+}
 ## Diffusion process of the ligand 
   
   dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delta^2) - Rb[1]
   
-## This layer represents the polymer to solution interface
+## This layer represents the polymer cylinder to liquid media interface
   
   dLIGAND[N-1] <- p2 * (-2 * LIGAND[N-1] + LIGAND[N-2]) / (delta^2) - Rb[N-1]
   
 ## These are the calculations for the layers in between top and center
   
 for(i in 2:(N-2)){
-  dLIGAND[i]   <- p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
+  dLIGAND[i] <- p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
 }
   
 ## Change in COMPLEX through the polymer cylinder
@@ -95,8 +95,6 @@ return(list(dudt))
   }
 ```
 
-
-
 # The parameters and state variables
 ```{r}
 
@@ -106,11 +104,11 @@ return(list(dudt))
 
 time  =   350.0         # Length of simulation in hrs
 
-M_l   =     0.000426    # Initial drug in cylinder in millimoles.
+M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles.
 V_h   =     0.0785      # Volume of polymer cylinder mL
 
 k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
-k1    =    11.20653     # LIGAND coupling rate to host in 1/mM*hrs
+k1    =    11.2     # LIGAND coupling rate to host in 1/mM*hrs
 K     =   k1 / k2       # Binding strength between drug and host in mM^-1
 
 N     =    50.0         # Number of boxes 
@@ -119,15 +117,15 @@ delta =    1 / N        # Spacing
 
 ## Estimated parameters
 
-C_o = M_l / V_h                   # LIGAND in cylinder in mM
-C_T = 0.008810573 / V_h           # Host concentration in cylinder in mM 
+C_o = M_l / V_h                   # LIGAND in polymer cylinder in mM
+C_T = 0.00881 / V_h           # Host concentration in polymer cylinder in mM 
 C_c = 0.00001 * C_T               # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
-### LIGAND  + COMPLEX (LIGAND:host) = C_o
+### LIGAND  + COMPLEX (LIGAND:host) = C_o = Total LIGAND in polymer cylinder
 
-ligand_eq  =        (C_o) / (1 + K * C_c) # Drug concentration not bound to host at time = 0 in mM
-complex_eq = C_o -  (C_o) / (1 + K * C_c) # Drug concentration bound to host at time = 0  in mM
+ligand_eq  =        (C_o) / (1 + K * C_c) # Free LIGAND at time = 0 in mM
+complex_eq = C_o -  (C_o) / (1 + K * C_c) # COMPLEX at time = 0  in mM
 
 ## Dimensionless parameters
 
@@ -136,13 +134,13 @@ p2           = 0.933
 p3           = C_T / C_o
 
 ligand_init  =  ligand_eq / C_o  # Dimensionless free LIGAND
-complex_init = complex_eq / C_o  # Dimensionless complex
+complex_init = complex_eq / C_o  # Dimensionless COMPLEX
 tau          =       time * k2   # Dimensionless time
 
 # State variables 
 
-### Free LIGAND divided into the total number of layers, layer in direct contact 
-### to media is set to 0
+### Free LIGAND divided into the total number of layers with the layer in direct 
+### contact to the liquid media set to 0
 
 LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  
 
@@ -150,7 +148,9 @@ LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)
 
 COMPLEX   <- rep((complex_init / N), times = N)   
 
-RELEASE   <- 0  # Initially there's no drug in the liquid environment
+### Initially there's no drug in the liquid environment
+
+RELEASE   <- 0  
 
 state     <- c(LIGAND = LIGAND,
                COMPLEX = COMPLEX,
@@ -175,22 +175,26 @@ desolve_output <- ode(func = affinity,
 library(tidyverse)
 
 
-# At each time sum the concentration of free LIGAND and bound LIGAND (complex) within the 
-# polymer to calculate the LIGAND depletion rate. I expect this to go down to 0.
+# At each time sum the concentration of free LIGAND and bound LIGAND (complex) 
+# within the polymer cylinder to calculate the LIGAND depletion rate. I expect
+# it to go down to 0.
 
 tidy_release_polymer  <- as.data.frame(desolve_output) %>% 
   select(-RELEASE) %>%
   gather(., key = "species", value = "concentration", -time) %>%
   separate(col = species, 
            into = c("species", "z"), 
-           sep = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the column names from the vertical coordinates of the cylinder
+           sep = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the state 
+                                                    # variable names from the
+                                                    # vertical coordinates of 
+                                                    # the polymer cylinder
   mutate(z = as.numeric(z)) %>%
   mutate(time = time / k2) %>% # Reverting back time from dimensionless to hrs
   filter(species %in% c("LIGAND", "COMPLEX")) %>% # 
   group_by(time) %>% 
-  summarise(ligand_in_polymer = sum(concentration)) # Calculate the sum of free ligand and bound LIGAND(complex)
+  summarise(ligand_in_polymer = sum(concentration)) 
 
-# Grabbing the RELEASE variable. I expect it to go up to 1
+# Grabbing the RELEASE variable. I expect it to go up to 1.
 
 tidy_release_media <- desolve_output %>%
   as.data.frame() %>%
@@ -198,9 +202,9 @@ tidy_release_media <- desolve_output %>%
   mutate(time = time / k2) %>%
   rename(ligand_in_media = RELEASE) 
   
-# When I sum both the drug remaining in the polymer and the drug entering the solution
-# I expect a flat line around 1 (+/- numerical error) due to the principle 
-# of mass conservation. However, I obtain a depletion curve.
+# When I sum both the drug remaining in the polymer cylinder and the drug 
+# entering the solution I expect a flat line around 1 (+/- numerical error) due 
+# to the principle of mass conservation. However, I obtain a depletion curve.
 
 tidy_release_polymer %>%
   inner_join(tidy_release_media, by = "time") %>%
