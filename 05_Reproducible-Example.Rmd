@@ -105,7 +105,7 @@ V_h   =     0.0785      # Volume of polymer cylinder mL
 
 k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
 k1    =    11.20653     # LIGAND coupling rate to host in 1/mM*hrs
-K     =    1000 * k1 / k2      # Binding strength between drug and host in mM^-1
+K     =   k1 / k2       # Binding strength between drug and host in mM^-1
 
 N     =    50.0         # Number of boxes 
 delta =    1 / N        # Spacing
@@ -113,9 +113,9 @@ delta =    1 / N        # Spacing
 
 ## Estimated parameters
 
-C_o = M_l / V_h         # Initial total drug concentration inside of the polymer in mM
-C_T = 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (constant through time)
-C_c = 0.0000001 * C_T       # Fraction of hosts without bound drug
+C_o = M_l / V_h                   # Initial total drug concentration inside of the polymer in mM
+C_T = 1000000 * 0.008810573 / V_h # Host concentration inside polymer cylinder in mM (constant through time)
+C_c = 0.0000001 * C_T             # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
 
@@ -192,7 +192,7 @@ tidy_release_media <- desolve_output %>%
 
 tidy_release_polymer %>%
   inner_join(tidy_release_media, by = "time") %>%
-  mutate(mass_conservation = ligand_in_polymer + ligand_in_media) %>%
+  mutate(mass_conservation = ligand_in_polymer + 100 * ligand_in_media) %>%
   ggplot(aes(x = time, y = mass_conservation)) +
   geom_point()
 
