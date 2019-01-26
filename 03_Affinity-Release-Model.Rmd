@@ -404,6 +404,10 @@ param_vals <- data.frame(param_1 = c(1, 10, 100),
  
  Visualize the resulting outputs 
  
+ Collect numerical values of parameters onto a table
+ 
+ Check for a nice package to tabulate
+ 
        
 # Appendix
 
