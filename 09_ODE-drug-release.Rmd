@@ -1,0 +1,277 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+## Corrected for boundary conditions (2/delta)
+http://hplgit.github.io/prog4comp/doc/pub/p4c-sphinx-Python/._pylight006.html
+Equation 130 states that this boundary condition produces a smaller error term than the simple backward difference. 
+```{r}
+affinity_twodeltasq <- function(t, state , parms, ...){
+with(as.list(c(state, parms)), {
+# LIGAND + host <-> COMPLEX (LIGAND:host)
+  
+# The LIGAND is free to diffuse along the vertical length (N) of the polymer 
+# cylinder. The host remains constant as it is part of the polymer cylinder 
+# matrix. The LIGAND can reversibly bind to the the host to form a COMPLEX. 
+# Only the free LIGAND diffuses into the liquid media and is called the RELEASE.
+
+
+# Extracting values passed into the function through the state argument
+  LIGAND     <- state[1:N]
+  COMPLEX    <- state[(N+1):(2*N)]
+  RELEASE    <- state[2*N+1]
+
+# Initializing the derivatives vectors
+  dLIGAND    <- rep(0, times = N)
+  dCOMPLEX   <- rep(0, times = N)
+  dRELEASE   <- 0
+  Rb         <- rep(0, times = N)
+   
+# Method of Lines  
+## Binding process to host
+  for(i in 1:(N-1)){
+  Rb[i]        <- p1 * LIGAND[i] * (p3 - COMPLEX[i]) - COMPLEX[i] 
+}
+## Diffusion process of the ligand 
+  
+  dLIGAND[1]   <- p2 * (LIGAND[2] - LIGAND[1]) / (delta^2) - Rb[1]
+  
+## This layer represents the polymer cylinder to liquid media interface
+  
+  dLIGAND[N-1] <- p2 * (-2 * LIGAND[N-1] + LIGAND[N-2]) / (delta^2) - Rb[N-1]
+  
+## These are the calculations for the layers in between top and center
+  
+for(i in 2:(N-2)){
+  dLIGAND[i]   <- 
+    p2 * (LIGAND[i + 1] - 2 * LIGAND[i] + LIGAND[i-1]) / (delta^2) - Rb[i]
+}
+  
+## Change in COMPLEX through the polymer cylinder
+  
+  dCOMPLEX     <- Rb
+
+## LIGAND exiting into the liquid environment
+  dRELEASE     <- -  p2 * (LIGAND[N] - LIGAND[(N-1)]) / (delta^2) 
+
+  dudt         <- c(dLIGAND, dCOMPLEX, dRELEASE)
+
+  ncall <<- ncall + 1 
+
+return(list(dudt)) 
+})     
+  }
+```
+
+## 14th - 303.7 M^-1 to 303700 mM^-1 strong and redefining p1,p2,p3
+```{r}
+
+# Parameters
+
+## Parameters
+
+time  =   350.0         # Length of simulation in hrs
+
+M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles.
+V_h   =     0.0785      # Volume of polymer cylinder mL
+
+k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
+k1    =   303.7 * 1000 * 36.9 # LIGAND coupling rate to host in 1/mM*hrs
+K     =   k1 / k2       # Binding strength between drug and host in mM^-1
+
+N     =    50.0         # Number of boxes 
+delta =    1 / N        # Spacing 
+
+C_o   = M_l / V_h       # LIGAND in polymer cylinder in mM
+C_T   = 0.00881 / V_h   # Host concentration in polymer cylinder in mM 
+C_c   = 0.00001 * C_T   # Fraction of hosts without bound drug
+
+## Equilibrium concentrations
+
+### LIGAND  + COMPLEX (LIGAND:host) = C_o = Total LIGAND in polymer cylinder
+
+ligand_eq  =       (C_o) / (1 + K * C_c) # Free LIGAND at time = 0 in mM
+complex_eq = C_o - (C_o) / (1 + K * C_c) # COMPLEX at time = 0  in mM
+
+## Dimensionless parameters
+
+
+
+ligand_init  =  ligand_eq / C_o  # Dimensionless free LIGAND
+complex_init = complex_eq / C_o  # Dimensionless COMPLEX
+tau          =       time * k2   # Dimensionless time
+
+# State variables 
+
+### Free LIGAND divided into the total number of layers with the layer in direct 
+### contact to the liquid media set to 0
+
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  
+
+### COMPLEX divided into the total number of layers
+
+COMPLEX   <- rep((complex_init / N), times = N)   
+
+### Initially there's no drug in the liquid environment
+
+RELEASE   <- 0  
+
+state_strong  <- c(LIGAND = LIGAND,
+               COMPLEX = COMPLEX,
+               RELEASE = RELEASE)
+
+parms_strong <- list(p1 = k1 * C_o / k2,
+                  p2 = 0.933,            
+                  p3 = C_T / C_o)
+
+times <- seq(0, tau, by = 1)
+
+ncall <- 0
+```
+
+
+## 15th - 26.7 K2, 12.6 K, 12.6 * 1000 * 26.7 weak and redefining p1, p2, p3
+```{r}
+
+# Parameters
+
+## Parameters
+
+time  =   350.0         # Length of simulation in hrs
+
+M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles.
+V_h   =     0.0785      # Volume of polymer cylinder mL
+
+k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
+k1    =    12.6 * 1000 * 26.7    # LIGAND coupling rate to host in 1/mM*hrs
+K     =   k1 / k2       # Binding strength between drug and host in mM^-1
+
+N     =    50.0         # Number of boxes 
+delta =    1 / N        # Spacing 
+
+C_o   = M_l / V_h       # LIGAND in polymer cylinder in mM
+C_T   = 0.00881 / V_h   # Host concentration in polymer cylinder in mM 
+C_c   = 0.00001 * C_T   # Fraction of hosts without bound drug
+
+## Equilibrium concentrations
+
+### LIGAND  + COMPLEX (LIGAND:host) = C_o = Total LIGAND in polymer cylinder
+
+ligand_eq  =       (C_o) / (1 + K * C_c) # Free LIGAND at time = 0 in mM
+complex_eq = C_o - (C_o) / (1 + K * C_c) # COMPLEX at time = 0  in mM
+
+## Dimensionless parameters
+
+
+
+ligand_init  =  ligand_eq / C_o  # Dimensionless free LIGAND
+complex_init = complex_eq / C_o  # Dimensionless COMPLEX
+tau          =       time * k2   # Dimensionless time
+
+# State variables 
+
+### Free LIGAND divided into the total number of layers with the layer in direct 
+### contact to the liquid media set to 0
+
+LIGAND    <- c(rep((ligand_init / (N-1)), times = N-1), 0)  
+
+### COMPLEX divided into the total number of layers
+
+COMPLEX   <- rep((complex_init / N), times = N)   
+
+### Initially there's no drug in the liquid environment
+
+RELEASE   <- 0  
+
+state_weak <- c(LIGAND = LIGAND,
+               COMPLEX = COMPLEX,
+               RELEASE = RELEASE)
+
+parms_weak <- list(p1 = k1 * C_o / k2,
+                p2 = 0.933,            
+                p3 = C_T / C_o)
+
+times <- seq(0, tau, by = 1)
+
+ncall <- 0
+```
+
+# Solving the system
+```{r}
+library(deSolve)
+
+desolve_output_twodeltasq_strong <- ode(y = state_strong,
+                      times = times, 
+                      func = affinity_twodeltasq, 
+                      parms = parms_strong)
+
+desolve_output_twodeltasq_weak <- ode(y = state_weak,
+                      times = times, 
+                      func = affinity_twodeltasq, 
+                      parms = parms_weak)
+```
+
+
+
+
+## Functions neccesary for testing of new implementation
+```{r}
+
+tidy_release_output <- function(desolve_output) {
+  library(tidyverse)
+# At each time, sum the concentration of free LIGAND and bound LIGAND (complex) 
+# within the polymer cylinder to calculate the LIGAND depletion rate. I expect
+# it to go down to 0.
+
+tidy_release_polymer  <- as.data.frame(desolve_output) %>% 
+  select(-RELEASE) %>%
+  gather(., key = "species", value = "concentration", -time) %>%
+  separate(col = species, 
+           into = c("species", "z"), 
+           sep = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the state 
+                                                    # variable names from the
+                                                    # vertical coordinates of 
+                                                    # the polymer cylinder
+  mutate(z = as.numeric(z)) %>%
+  mutate(time = time / k2) %>% # Reverting back time from dimensionless to hrs
+  filter(species %in% c("LIGAND", "COMPLEX")) %>% # 
+  group_by(time) %>% 
+  summarise(ligand_in_polymer = sum(concentration)) 
+
+# Grabbing the RELEASE variable. I expect it to go up to 1.
+
+tidy_release_media <- desolve_output %>%
+  as.data.frame() %>%
+  select(time, RELEASE) %>%
+  mutate(time = time / k2) %>%
+  rename(ligand_in_media = RELEASE) 
+  
+# When I sum both the drug remaining in the polymer cylinder and the drug 
+# entering the solution I expect a flat line around 1 (+/- numerical error) due 
+# to the principle of mass conservation. However, I obtain a depletion curve.
+
+tidy_release_df<- tidy_release_polymer %>%
+  inner_join(tidy_release_media, by = "time")  %>%
+  mutate(mass_conservation = ligand_in_polymer + ligand_in_media) 
+return(tidy_release_df)
+}
+```
+
+## Testing the solution
+
+# Compiling observations
+```{r}
+library(tidyverse)
+map_df(list(#fu_etal = desolve_output_affinity,
+            strong_parms = desolve_output_twodeltasq_strong,
+            weak_parms = desolve_output_twodeltasq_weak),
+       tidy_release_output, 
+       .id = "case") %>%
+  gather(data = ., key = "compartment", value = "ligand", 
+ligand_in_polymer:mass_conservation) %>%
+  ggplot(aes(time, ligand)) +
+  geom_point() +
+  facet_wrap(case~compartment) +
+  theme_bw()
+```
