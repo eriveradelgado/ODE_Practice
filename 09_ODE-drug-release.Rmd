@@ -3,6 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+
 ## Corrected for boundary conditions (2/delta)
 http://hplgit.github.io/prog4comp/doc/pub/p4c-sphinx-Python/._pylight006.html
 Equation 130 states that this boundary condition produces a smaller error term than the simple backward difference. 
@@ -73,7 +74,7 @@ return(list(dudt))
 
 time  =   350.0         # Length of simulation in hrs
 
-M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles.
+M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles
 V_h   =     0.0785      # Volume of polymer cylinder mL
 
 k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
@@ -85,7 +86,7 @@ delta =    1 / N        # Spacing
 
 C_o   = M_l / V_h       # LIGAND in polymer cylinder in mM
 C_T   = 0.00881 / V_h   # Host concentration in polymer cylinder in mM 
-C_c   = 0.00001 * C_T   # Fraction of hosts without bound drug
+C_c   = 0.01 * C_T   # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
 
@@ -117,13 +118,13 @@ COMPLEX   <- rep((complex_init / N), times = N)
 
 RELEASE   <- 0  
 
-state_strong  <- c(LIGAND = LIGAND,
-               COMPLEX = COMPLEX,
-               RELEASE = RELEASE)
+state_strong  <- c(LIGAND  = LIGAND,
+                   COMPLEX = COMPLEX,
+                   RELEASE = RELEASE)
 
 parms_strong <- list(p1 = k1 * C_o / k2,
-                  p2 = 0.933,            
-                  p3 = C_T / C_o)
+                     p2 = 0.933,
+                     p3 = C_T / C_o)
 
 times <- seq(0, tau, by = 1)
 
@@ -143,7 +144,7 @@ time  =   350.0         # Length of simulation in hrs
 M_l   =     0.0004      # Initial drug in polymer cylinder in millimoles.
 V_h   =     0.0785      # Volume of polymer cylinder mL
 
-k2    =    36.9         # LIGAND decoupling rate from host in 1/hrs
+k2    =    26.7         # LIGAND decoupling rate from host in 1/hrs
 k1    =    12.6 * 1000 * 26.7    # LIGAND coupling rate to host in 1/mM*hrs
 K     =   k1 / k2       # Binding strength between drug and host in mM^-1
 
@@ -152,7 +153,7 @@ delta =    1 / N        # Spacing
 
 C_o   = M_l / V_h       # LIGAND in polymer cylinder in mM
 C_T   = 0.00881 / V_h   # Host concentration in polymer cylinder in mM 
-C_c   = 0.00001 * C_T   # Fraction of hosts without bound drug
+C_c   = 0.1 * C_T   # Fraction of hosts without bound drug
 
 ## Equilibrium concentrations
 
@@ -189,8 +190,8 @@ state_weak <- c(LIGAND = LIGAND,
                RELEASE = RELEASE)
 
 parms_weak <- list(p1 = k1 * C_o / k2,
-                p2 = 0.933,            
-                p3 = C_T / C_o)
+                   p2 = 0.933,            
+                   p3 = C_T / C_o)
 
 times <- seq(0, tau, by = 1)
 
@@ -204,12 +205,14 @@ library(deSolve)
 desolve_output_twodeltasq_strong <- ode(y = state_strong,
                       times = times, 
                       func = affinity_twodeltasq, 
-                      parms = parms_strong)
+                      parms = parms_strong,
+                      method = "daspk")
 
 desolve_output_twodeltasq_weak <- ode(y = state_weak,
                       times = times, 
                       func = affinity_twodeltasq, 
-                      parms = parms_weak)
+                      parms = parms_weak,
+                      method = "daspk")
 ```
 
 
@@ -219,7 +222,9 @@ desolve_output_twodeltasq_weak <- ode(y = state_weak,
 ```{r}
 
 tidy_release_output <- function(desolve_output) {
+  
   library(tidyverse)
+
 # At each time, sum the concentration of free LIGAND and bound LIGAND (complex) 
 # within the polymer cylinder to calculate the LIGAND depletion rate. I expect
 # it to go down to 0.
@@ -227,9 +232,9 @@ tidy_release_output <- function(desolve_output) {
 tidy_release_polymer  <- as.data.frame(desolve_output) %>% 
   select(-RELEASE) %>%
   gather(., key = "species", value = "concentration", -time) %>%
-  separate(col = species, 
+  separate(col  = species, 
            into = c("species", "z"), 
-           sep = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the state 
+           sep  = "(?<=[:alpha:])(?=[:digit:])") %>% # Separating the state 
                                                     # variable names from the
                                                     # vertical coordinates of 
                                                     # the polymer cylinder
@@ -249,11 +254,12 @@ tidy_release_media <- desolve_output %>%
   
 # When I sum both the drug remaining in the polymer cylinder and the drug 
 # entering the solution I expect a flat line around 1 (+/- numerical error) due 
-# to the principle of mass conservation. However, I obtain a depletion curve.
+# to the principle of mass conservation. 
 
 tidy_release_df<- tidy_release_polymer %>%
   inner_join(tidy_release_media, by = "time")  %>%
   mutate(mass_conservation = ligand_in_polymer + ligand_in_media) 
+
 return(tidy_release_df)
 }
 ```
@@ -263,13 +269,14 @@ return(tidy_release_df)
 # Compiling observations
 ```{r}
 library(tidyverse)
-map_df(list(#fu_etal = desolve_output_affinity,
-            strong_parms = desolve_output_twodeltasq_strong,
+map_df(list(strong_parms = desolve_output_twodeltasq_strong,
             weak_parms = desolve_output_twodeltasq_weak),
        tidy_release_output, 
        .id = "case") %>%
-  gather(data = ., key = "compartment", value = "ligand", 
-ligand_in_polymer:mass_conservation) %>%
+  gather(data = ., 
+         key = "compartment", 
+         value = "ligand", 
+         ligand_in_polymer:mass_conservation) %>%
   ggplot(aes(time, ligand)) +
   geom_point() +
   facet_wrap(case~compartment) +
